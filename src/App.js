@@ -219,8 +219,8 @@ function App() {
 						<TileLayer
 							attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 							url={isDarkMode
-								? "http://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png"
-								: "http://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png"
+								? "http://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png?key=cb1_2k9c_1_098230c202b462bf7ec6cc85"
+								: "http://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png?key=cb1_2k9c_1_098230c202b462bf7ec6cc85"
 							}
 						/>
 
