@@ -41,7 +41,15 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 
 * [x] Automatically fetch and insert the latest episode into the database every week. *(title + link are automatic; location still needs to be filled in by hand — see below)*
 * [x] Add search functionality for specific episodes or cities.
-* [ ] Suggest coordinates for new episodes automatically (e.g. geocoding a place name from the title).
+* [x] Suggest coordinates for new episodes automatically: extract the place name from the title (e.g. with the Claude API), geocode it, and write it to Notion with a "needs review" checkbox. *(see Weekly Episode Sync)*
+* [ ] Notify after each weekly sync (email / Discord / LINE): which episodes were added and which still need a location, plus an alert when the sync fails.
+* [ ] Shareable episode links (e.g. `?ep=288` or `/place/冰島`) that fly to the place and open its popup, with per-episode Open Graph preview cards.
+* [ ] Marker clustering when zoomed out (e.g. `react-leaflet-cluster`), so dense areas like Europe and Japan stay readable.
+* [ ] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
+* [ ] Footprint stats: shade visited countries and show "countries unlocked" plus per-continent progress.
+* [ ] Guest filter: parse guests from `ft.` / `with` in titles and list all episodes for a guest.
+* [ ] "Take me somewhere" button that flies to a random episode.
+* [ ] Play episodes inside the popup with an embedded YouTube player.
 
 ## Local Development
 
@@ -58,6 +66,7 @@ Before pushing:
 
 ```bash
 npm run test:ci        # unit tests, single run
+npm run test:api       # API helper tests (lib/), no network
 npm run smoke          # checks the running API server (sync is always a dry run)
 npm run build          # make sure the production build compiles
 npm run smoke -- https://<preview>.vercel.app   # same checks against a Vercel preview deployment
@@ -71,16 +80,20 @@ npm run smoke -- https://<preview>.vercel.app   # same checks against a Vercel p
 | `NOTION_DATA_SOURCE_ID` | ✅ | Notion data source ID (`NOTION_DATABASE_ID` is still accepted for backward compatibility). |
 | `CRON_SECRET` | for sync | Random string. Vercel sends it to `/api/sync-latest` automatically; requests without it are rejected. |
 | `SYNC_SKIP_PATTERN` | optional | Regex of titles the sync should never add, e.g. `^《幕後`. |
+| `ANTHROPIC_API_KEY` | optional | Enables location suggestions in the weekly sync. Without it, new episodes are added as `待補地點`. |
+| `PLACE_MODEL` | optional | Claude model used for suggestions (default `claude-opus-5-5`). |
 | `API_PORT` | local only | Port of the local API server (default `4000`). |
 | `USE_MOCK` | local only | `1` = same as `npm run api:mock`. |
 
 ## Weekly Episode Sync
 
-`vercel.json` schedules `/api/sync-latest` every Monday 04:00 UTC (12:00 Taiwan time). It reads the channel's YouTube RSS feed, skips Shorts and episodes already in Notion (matched by YouTube video ID), and creates a row for each new one with `Name = 待補地點`, `PodcastTitle` and `PodcastUrl`.
+`vercel.json` schedules `/api/sync-latest` every Wednesday 04:00 UTC (12:00 Taiwan time). It reads the channel's YouTube RSS feed and skips Shorts and episodes already in Notion (matched by YouTube video ID).
 
-Rows without `Lat`/`Lng` are **not shown on the map**, so the site never shows a wrong pin. Fill in `Name`, `Continent`, `Lat`, `Lng` in Notion and the episode appears after the cache refreshes (≤ 10 min).
+**With `ANTHROPIC_API_KEY` set**, each new title is sent to Claude, which lists the places the episode is about (Traditional Chinese name, continent, an English geocoding query). Each place is geocoded with OpenStreetMap Nominatim; if Nominatim finds nothing or lands more than 300 km from Claude's own estimate, Claude's estimate is used. One row is created per place with `Name`, `Continent`, `Lat`, `Lng`, `PodcastTitle`, `PodcastUrl` and **`NeedsReview` checked**. These rows stay **off the map** until reviewed — filter Notion by `NeedsReview`, fix anything wrong, and untick it; the pin appears after the cache refreshes (≤ 10 min).
 
-Preview without writing anything:
+Episodes with no clear place (or when the suggestion fails, or without the API key) get one row with `Name = 待補地點` and no coordinates. Rows without `Lat`/`Lng` are **not shown on the map**; fill in `Name`, `Continent`, `Lat`, `Lng` in Notion and the episode appears after the cache refreshes (≤ 10 min).
+
+Preview without writing anything (the response lists the suggested places for each new episode):
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" "https://unlock-the-earth.vercel.app/api/sync-latest?dryRun=1"

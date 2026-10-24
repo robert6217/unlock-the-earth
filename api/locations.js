@@ -30,7 +30,11 @@ module.exports = async (req, res) => {
 		]);
 
 		const episodes = pages.map(formatPage).filter(Boolean);
-		const locations = episodes.filter(ep => ep.coordinates);
+		// Places suggested by the weekly sync stay off the map until NeedsReview is unticked in Notion.
+		const locations = pages
+			.filter(page => page.properties?.NeedsReview?.checkbox !== true)
+			.map(formatPage)
+			.filter(ep => ep && ep.coordinates);
 
 		const newest = youtube[0];
 		const latest = newest
@@ -41,7 +45,7 @@ module.exports = async (req, res) => {
 		res.status(200).json({
 			latest,
 			locations,
-			pendingCount: episodes.length - locations.length, // rows still waiting for coordinates
+			pendingCount: episodes.length - locations.length, // rows still waiting for coordinates or review
 			updatedAt: new Date().toISOString(),
 		});
 	} catch (error) {
