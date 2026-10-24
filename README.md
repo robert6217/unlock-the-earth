@@ -24,7 +24,10 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * **🌓 Dark/Light Mode**: Includes a theme toggle switch. The app automatically saves the user's preference to `localStorage`, ensuring a consistent experience across visits.
 * **📍 Custom SVG Markers**: Replaced standard image markers with custom-coded, scalable SVG pins that support hover animations and dynamic resizing.
 * **🎧 Direct Podcast Links**: Clicking on a map marker opens a popup with the episode title and a direct link to listen.
-* **⚡ Optimized Data Fetching**: The backend implements pagination loops to handle Notion API limits, ensuring all location data is retrieved successfully.
+* **⚡ Optimized Data Fetching**: The backend implements pagination loops to handle Notion API limits, and the response is cached on Vercel's CDN (10 min, stale-while-revalidate) so page views don't hit Notion every time.
+* **🔎 Search**: Search episodes by city, country, title or episode number; click a result to fly to it on the map.
+* **📌 Grouped Markers**: Episodes recorded at the same place share one pin with a count badge; the popup lists all of them.
+* **🤖 Weekly Sync**: A Vercel Cron job adds new YouTube episodes to Notion every week (see below).
 
 ## Tech Stack
 
@@ -36,8 +39,52 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 
 ## TODO
 
-* [ ] Automatically fetch and insert the latest episode into the database every week.
-* [ ] Add search functionality for specific episodes or cities.
+* [x] Automatically fetch and insert the latest episode into the database every week. *(title + link are automatic; location still needs to be filled in by hand — see below)*
+* [x] Add search functionality for specific episodes or cities.
+* [ ] Suggest coordinates for new episodes automatically (e.g. geocoding a place name from the title).
+
+## Local Development
+
+```bash
+npm install
+cp .env.example .env   # fill in your Notion credentials
+npm run api            # API server on http://localhost:4000 (same handlers as Vercel)
+npm start              # React dev server; /api requests are proxied to :4000
+```
+
+No Notion credentials (or offline)? `npm run api:mock` serves `/api/locations` from `public/map_info/data.json` instead.
+
+Before pushing:
+
+```bash
+npm run test:ci        # unit tests, single run
+npm run smoke          # checks the running API server (sync is always a dry run)
+npm run build          # make sure the production build compiles
+npm run smoke -- https://<preview>.vercel.app   # same checks against a Vercel preview deployment
+```
+
+## Environment Variables
+
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `NOTION_API_KEY` | ✅ | Notion integration token. Needs *Read content*; the weekly sync also needs *Insert content*. |
+| `NOTION_DATA_SOURCE_ID` | ✅ | Notion data source ID (`NOTION_DATABASE_ID` is still accepted for backward compatibility). |
+| `CRON_SECRET` | for sync | Random string. Vercel sends it to `/api/sync-latest` automatically; requests without it are rejected. |
+| `SYNC_SKIP_PATTERN` | optional | Regex of titles the sync should never add, e.g. `^《幕後`. |
+| `API_PORT` | local only | Port of the local API server (default `4000`). |
+| `USE_MOCK` | local only | `1` = same as `npm run api:mock`. |
+
+## Weekly Episode Sync
+
+`vercel.json` schedules `/api/sync-latest` every Monday 04:00 UTC (12:00 Taiwan time). It reads the channel's YouTube RSS feed, skips Shorts and episodes already in Notion (matched by YouTube video ID), and creates a row for each new one with `Name = 待補地點`, `PodcastTitle` and `PodcastUrl`.
+
+Rows without `Lat`/`Lng` are **not shown on the map**, so the site never shows a wrong pin. Fill in `Name`, `Continent`, `Lat`, `Lng` in Notion and the episode appears after the cache refreshes (≤ 10 min).
+
+Preview without writing anything:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "https://unlock-the-earth.vercel.app/api/sync-latest?dryRun=1"
+```
 
 # Live Demo
 
