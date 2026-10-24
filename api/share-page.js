@@ -34,8 +34,11 @@ module.exports = async (req, res) => {
 
 	let html = null;
 	try {
-		const response = await fetch(`${process.env.SHARE_HTML_ORIGIN || siteUrl}/index.html`);
-		if (response.ok) html = await response.text();
+		// redirect: 'manual' + the #root check: a protected preview deployment answers with a redirect to
+		// the Vercel login page, which must not be served as if it were the app
+		const response = await fetch(`${process.env.SHARE_HTML_ORIGIN || siteUrl}/index.html`, { redirect: 'manual' });
+		const text = response.ok ? await response.text() : '';
+		if (text.includes('id="root"')) html = text;
 	} catch (error) {
 		console.error('share-page shell error:', error.message);
 	}
