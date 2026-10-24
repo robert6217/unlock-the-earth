@@ -818,13 +818,6 @@ input:checked+.slider:before {
 	color: var(--text-secondary);
 }
 
-.timeline-speed {
-	min-width: 34px;
-	padding: 4px 6px;
-	font-size: 0.8rem;
-	font-weight: 700;
-	font-variant-numeric: tabular-nums;
-}
 
 .timeline-close {
 	padding: 4px 8px;

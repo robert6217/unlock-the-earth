@@ -7,8 +7,7 @@ const API_URL = '/api/locations';
 const MIN_LOADING_MS = 1200; // keep the spinning earth on screen briefly, but never add a fixed delay after loading
 const MAX_SEARCH_RESULTS = 30;
 const CONTINENT_ORDER = ['亞洲', '歐洲', '非洲', '北美洲', '中美洲', '南美洲', '大洋洲', '澳洲', '南極洲', '其他'];
-const TIMELINE_STEP_MS = 450; // one release date per step at 1x
-const TIMELINE_SPEEDS = [1, 2, 4];
+const TIMELINE_STEP_MS = 110; // one release date per step (~30 s for the whole history)
 
 // CARTO basemaps now draw an "API KEY REQUIRED" watermark without a key. The key is a
 // public client-side key (it ships in the bundle either way); REACT_APP_CARTO_API_KEY overrides it.
@@ -83,7 +82,6 @@ function App() {
 	const [timelineOn, setTimelineOn] = useState(false);
 	const [timelineIndex, setTimelineIndex] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(false);
-	const [speed, setSpeed] = useState(1);
 	const markerRefs = useRef(new Map());
 
 	useEffect(() => {
@@ -162,9 +160,9 @@ function App() {
 		if (!isPlaying) return undefined;
 		const timer = setInterval(() => {
 			setTimelineIndex(i => Math.min(i + 1, timelineDates.length - 1));
-		}, TIMELINE_STEP_MS / speed);
+		}, TIMELINE_STEP_MS);
 		return () => clearInterval(timer);
-	}, [isPlaying, speed, timelineDates.length]);
+	}, [isPlaying, timelineDates.length]);
 
 	useEffect(() => {
 		if (isPlaying && timelineIndex >= timelineDates.length - 1) setIsPlaying(false);
@@ -435,14 +433,6 @@ function App() {
 							<span className="timeline-date">{formatDate(cutoff)}</span>
 							<span className="timeline-count">已解鎖 {filteredLocations.length} 集</span>
 						</div>
-						<button
-							type="button"
-							className="timeline-speed"
-							onClick={() => setSpeed(s => TIMELINE_SPEEDS[(TIMELINE_SPEEDS.indexOf(s) + 1) % TIMELINE_SPEEDS.length])}
-							aria-label={`播放速度 ${speed} 倍`}
-						>
-							{speed}x
-						</button>
 						<button type="button" className="timeline-close" onClick={closeTimeline} aria-label="關閉時間軸">✕</button>
 					</div>
 				) : (

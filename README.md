@@ -27,7 +27,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * **⚡ Optimized Data Fetching**: The backend implements pagination loops to handle Notion API limits, and the response is cached on Vercel's CDN (10 min, stale-while-revalidate) so page views don't hit Notion every time.
 * **🔎 Search**: Search episodes by city, country, title or episode number; click a result to fly to it on the map.
 * **📌 Grouped Markers**: Episodes recorded at the same place share one pin with a count badge; the popup lists all of them.
-* **🕰 Timeline Playback**: Press "▶ 時間軸播放" to watch the map fill up in release order, one release date per step (1x / 2x / 4x, or drag the slider).
+* **🕰 Timeline Playback**: Press "▶ 時間軸播放" to watch the map fill up in release order, one release date per step (or drag the slider).
 * **🤖 Weekly Sync**: A Vercel Cron job adds new YouTube episodes to Notion every week (see below).
 
 ## Tech Stack
