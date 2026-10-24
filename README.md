@@ -41,7 +41,15 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 
 * [x] Automatically fetch and insert the latest episode into the database every week. *(title + link are automatic; location still needs to be filled in by hand — see below)*
 * [x] Add search functionality for specific episodes or cities.
-* [ ] Suggest coordinates for new episodes automatically (e.g. geocoding a place name from the title).
+* [ ] Suggest coordinates for new episodes automatically: extract the place name from the title (e.g. with the Claude API), geocode it, and write it to Notion with a "needs review" checkbox.
+* [ ] Notify after each weekly sync (email / Discord / LINE): which episodes were added and which still need a location, plus an alert when the sync fails.
+* [ ] Shareable episode links (e.g. `?ep=288` or `/place/冰島`) that fly to the place and open its popup, with per-episode Open Graph preview cards.
+* [ ] Marker clustering when zoomed out (e.g. `react-leaflet-cluster`), so dense areas like Europe and Japan stay readable.
+* [ ] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
+* [ ] Footprint stats: shade visited countries and show "countries unlocked" plus per-continent progress.
+* [ ] Guest filter: parse guests from `ft.` / `with` in titles and list all episodes for a guest.
+* [ ] "Take me somewhere" button that flies to a random episode.
+* [ ] Play episodes inside the popup with an embedded YouTube player.
 
 ## Local Development
 
