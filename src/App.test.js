@@ -1,8 +1,52 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+// react-leaflet is ESM-only and needs a real layout engine; jsdom has neither,
+// so the map is replaced with plain elements. The sidebar logic is what we test here.
+jest.mock('react-leaflet', () => {
+	const React = require('react');
+	const Pass = ({ children }) => React.createElement('div', null, children);
+	return {
+		MapContainer: Pass,
+		TileLayer: () => null,
+		ZoomControl: () => null,
+		Marker: Pass,
+		Popup: () => null,
+	};
+});
+
+const mockData = {
+	latest: { id: 'x', name: 'YouTube 最新上架', podcast: { title: 'Ep.999 測試最新單集', url: 'https://youtu.be/x' } },
+	locations: [
+		{ id: '1', name: '京都', continent: '亞洲', coordinates: { lat: 35.01, lng: 135.76 }, podcast: { title: 'Ep.235 東京到京都的浮世繪之路', url: 'https://youtu.be/a' } },
+		{ id: '2', name: '雷克雅維克', continent: '歐洲', coordinates: { lat: 64.14, lng: -21.94 }, podcast: { title: 'Ep.100 冰島', url: 'https://youtu.be/b' } },
+	],
+};
+
+beforeEach(() => {
+	window.matchMedia = window.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {} }));
+	global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(mockData) }));
+});
+
+test('renders the latest episode and continent filters from the API', async () => {
+	render(<App />);
+	expect(await screen.findByText('Ep.999 測試最新單集')).toBeInTheDocument();
+	expect(screen.getByText('亞洲')).toBeInTheDocument();
+	expect(screen.getByText('歐洲')).toBeInTheDocument();
+	expect(screen.getByText(/顯示 2 集/)).toBeInTheDocument();
+});
+
+test('search narrows the episode list', async () => {
+	render(<App />);
+	await screen.findByText(/顯示 2 集/);
+	fireEvent.change(screen.getByLabelText('搜尋單集或城市'), { target: { value: '京都' } });
+	await waitFor(() => expect(screen.getByText(/顯示 1 集/)).toBeInTheDocument());
+	expect(screen.getByText('Ep.235 東京到京都的浮世繪之路')).toBeInTheDocument();
+});
+
+test('shows an error with retry when the API fails', async () => {
+	global.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) }));
+	render(<App />);
+	expect(await screen.findByRole('alert')).toBeInTheDocument();
+	expect(screen.getByText('重新載入')).toBeInTheDocument();
 });

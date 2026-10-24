@@ -32,3 +32,6 @@ yarn-error.log*
 .idea/
 *.sublime-workspace
 *.sublime-project
+
+# AI
+.claude/
