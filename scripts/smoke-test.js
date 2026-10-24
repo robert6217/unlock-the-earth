@@ -28,6 +28,13 @@ async function main() {
 	const post = await fetch(`${base}/api/locations`, { method: 'POST' });
 	check('POST /api/locations -> 405', post.status === 405, `got ${post.status}`);
 
+	const firstEp = (data?.locations || []).map(l => (l.podcast.title.match(/^Ep\.?\s*(\d+)/) || [])[1]).find(Boolean);
+	if (firstEp) {
+		const share = await fetch(`${base}/api/share-page?ep=${firstEp}`);
+		const html = await share.text();
+		check(`share page for Ep.${firstEp} has its own preview`, share.status === 200 && html.includes(`og:title" content="Ep.${firstEp}`), `got ${share.status}`);
+	}
+
 	const noAuth = await fetch(`${base}/api/sync-latest?dryRun=1`);
 	check('GET /api/sync-latest without secret -> 401', noAuth.status === 401, `got ${noAuth.status}`);
 

@@ -9,5 +9,27 @@
       "path": "/api/sync-latest",
       "schedule": "0 4 * * 3"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "ep"
+        }
+      ],
+      "destination": "/api/share-page"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "place"
+        }
+      ],
+      "destination": "/api/share-page"
+    }
   ]
 }

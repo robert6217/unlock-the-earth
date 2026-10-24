@@ -73,6 +73,14 @@ export const CloseIcon = (props) => (
 	</Icon>
 );
 
+export const ShareIcon = (props) => (
+	<Icon {...props}>
+		<path d="M12 3v12" />
+		<path d="M7.5 7.5L12 3l4.5 4.5" />
+		<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+	</Icon>
+);
+
 export const ArrowRightIcon = (props) => (
 	<Icon {...props}>
 		<path d="M5 12h14M13 6l6 6-6 6" />
