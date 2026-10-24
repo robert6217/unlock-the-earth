@@ -8,10 +8,36 @@
 	<meta name="description" content="這是一個根據 Podcast 節目《解鎖地球》的內容，自由創作的互動式地圖網站，方便觀眾透過地圖快速了解每一集的地點。" />
 	<meta name="keywords" content="地圖, Podcast, Unlock the Earth, 聲音地圖, React, Leaflet, 世界探索" />
 	<meta name="author" content="Robbb" />
+	<!-- Default link preview; shared episode links get their own via api/share-page.js -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="解鎖地球地圖" />
+	<meta property="og:title" content="解鎖地球地圖 | Unlock the Earth" />
+	<meta property="og:description" content="用地圖探索 Podcast《解鎖地球》的每一集：搜尋城市、依洲別篩選、看節目一路走過的足跡。" />
+	<meta property="og:image" content="https://unlock-the-earth.vercel.app/logo512.png" />
+	<meta property="og:url" content="https://unlock-the-earth.vercel.app/" />
+	<meta name="twitter:card" content="summary" />
 	<meta name="theme-color" content="#000000" />
 	<link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
 	<link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 	<title>Unlock the Earth</title>
+	<script>
+		// Development only: browser extensions (e.g. MetaMask) inject scripts into every page, and their
+		// errors pop up the dev server's full-screen error overlay as if the app had crashed. Window
+		// listeners run in registration order, so this must be registered before the app bundle (which
+		// brings the overlay); errors whose stack points into extension code stop here, the app's own
+		// errors still show. In production builds the condition is false and nothing is registered.
+		if ('%NODE_ENV%' === 'development') {
+			(function () {
+				var fromExtension = /(chrome|moz|safari(-web)?)-extension:\/\//;
+				function ignoreExtensionErrors(event) {
+					var where = [event.filename, event.error && event.error.stack, event.reason && event.reason.stack].join(' ');
+					if (fromExtension.test(where)) event.stopImmediatePropagation();
+				}
+				window.addEventListener('error', ignoreExtensionErrors);
+				window.addEventListener('unhandledrejection', ignoreExtensionErrors);
+			})();
+		}
+	</script>
 </head>
 
 <body>

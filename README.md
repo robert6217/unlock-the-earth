@@ -28,6 +28,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * **🔎 Search**: Search episodes by city, country, title or episode number; click a result to fly to it on the map.
 * **📌 Grouped Markers**: Episodes recorded at the same place share one pin with a count badge; the popup lists all of them.
 * **🔥 Marker Clustering**: Zoomed out, nearby pins merge into bubbles showing how many episodes the area holds — the deeper the yellow and the bigger the glow, the more episodes. Click a bubble to zoom in; pins that still overlap at city level fan out.
+* **🔗 Shareable Links**: Every episode has a link (the "分享" button in its popup) that opens the map on that episode, with its own preview card on LINE / Facebook / X (see below).
 * **🕰 Timeline Playback**: Press "▶ 時間軸播放" to watch the map fill up in release order, one release date per step (or drag the slider).
 * **🤖 Weekly Sync**: A Vercel Cron job adds new YouTube episodes to Notion every week (see below).
 
@@ -45,7 +46,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * [x] Add search functionality for specific episodes or cities.
 * [x] Suggest coordinates for new episodes automatically: extract the place name from the title (e.g. with the Claude API), geocode it, and write it to Notion with a "needs review" checkbox. *(see Weekly Episode Sync)*
 * [ ] Notify after each weekly sync (email / Discord / LINE): which episodes were added and which still need a location, plus an alert when the sync fails.
-* [ ] Shareable episode links (e.g. `?ep=288` or `/place/冰島`) that fly to the place and open its popup, with per-episode Open Graph preview cards.
+* [x] Shareable episode links (e.g. `?ep=288` or `/place/冰島`) that fly to the place and open its popup, with per-episode Open Graph preview cards. *(as `?ep=288` / `?place=冰島`, see Shareable Links)*
 * [x] Marker clustering when zoomed out (e.g. `react-leaflet-cluster`), so dense areas like Europe and Japan stay readable. *(bubbles are shaded by episode count)*
 * [x] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
 * [ ] Footprint stats: shade visited countries and show "countries unlocked" plus per-continent progress.
@@ -86,6 +87,26 @@ npm run smoke -- https://<preview>.vercel.app   # same checks against a Vercel p
 | `PLACE_MODEL` | optional | Claude model used for suggestions (default `claude-opus-5-5`). |
 | `API_PORT` | local only | Port of the local API server (default `4000`). |
 | `USE_MOCK` | local only | `1` = same as `npm run api:mock`. |
+| `SITE_URL` | optional | Public site URL, e.g. a custom domain (`https://map.example.com`). Share previews only trust this, Vercel's own deployment hosts, and localhost in development. |
+| `SHARE_HTML_ORIGIN` | local only | Where `/api/share-page` fetches the app's `index.html` (`http://localhost:3000` with `npm start`). Not needed on Vercel. |
+
+## Shareable Links
+
+| Link | Opens |
+| --- | --- |
+| `/?ep=288`, `/?ep=99S` | that numbered episode |
+| `/?ep=<YouTube video id>` | an episode without a number (《明信片》, 《特別篇》…) |
+| `/?place=冰島` | every episode at that place |
+
+The map flies to the episode and opens its popup; an episode covering several places shows all of them and opens the first. The "分享" button in each popup copies the shortest of these links (on phones it opens the system share sheet).
+
+Link previews: crawlers don't run JavaScript, so `vercel.json` rewrites `/?ep=…` and `/?place=…` to `api/share-page.js`, which returns the app's `index.html` with that episode's title, places and YouTube thumbnail as Open Graph / Twitter tags (cached on the CDN for an hour). Everything else gets the default site card from `public/index.html`.
+
+Check a preview locally (with `npm start` running and `SHARE_HTML_ORIGIN=http://localhost:3000`):
+
+```bash
+curl "http://localhost:4000/api/share-page?ep=288"
+```
 
 ## Weekly Episode Sync
 

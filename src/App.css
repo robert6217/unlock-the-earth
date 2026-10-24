@@ -834,6 +834,83 @@ input:checked+.slider:before {
 	gap: 3px;
 }
 
+.popup-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 14px;
+}
+
+.popup-share {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px 0;
+	border: 0;
+	background: none;
+	color: #666;
+	font: inherit;
+	cursor: pointer;
+}
+
+.popup-share:hover,
+.popup-share:focus-visible {
+	color: #1a1a1a;
+	text-decoration: underline;
+	outline: none;
+}
+
+[data-theme="dark"] .popup-share {
+	color: #bbb;
+}
+
+[data-theme="dark"] .popup-share:hover,
+[data-theme="dark"] .popup-share:focus-visible {
+	color: #fff;
+}
+
+/* --- Toast ("已複製分享連結") --- */
+.toast {
+	position: absolute;
+	left: 50%;
+	bottom: 96px;
+	z-index: 3000;
+	transform: translateX(-50%);
+	padding: 10px 16px;
+	border-radius: 999px;
+	background: rgba(26, 26, 26, 0.92);
+	color: #fff;
+	font-size: 0.85rem;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+	white-space: nowrap;
+	animation: toast-in 0.2s ease-out;
+	pointer-events: none;
+}
+
+[data-theme="dark"] .toast {
+	background: rgba(245, 245, 245, 0.95);
+	color: #1a1a1a;
+}
+
+@keyframes toast-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, 8px);
+	}
+}
+
+@media (max-width: 600px) {
+	.toast {
+		bottom: calc(120px + env(safe-area-inset-bottom));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.toast {
+		animation: none;
+	}
+}
+
 [data-theme="dark"] .leaflet-popup-content-wrapper,
 [data-theme="dark"] .leaflet-popup-tip {
 	background: #1e1e1e;

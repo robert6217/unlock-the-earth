@@ -5,9 +5,10 @@ import L from 'leaflet';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css'; // animations + spider legs; the bubbles are styled in App.css
 import './App.css';
 import {
-	FlameIcon, SearchIcon, GlobeIcon, HeadphonesIcon, PlayIcon, PauseIcon, CloseIcon, ArrowRightIcon,
+	FlameIcon, SearchIcon, GlobeIcon, HeadphonesIcon, PlayIcon, PauseIcon, CloseIcon, ShareIcon,
 	YouTubeIcon, ApplePodcastsIcon, SpotifyIcon, InstagramIcon,
 } from './icons';
+import { readShareParams, findSharedEpisodes, shareUrlFor } from './shareLinks';
 
 const PLATFORMS = [
 	{ name: 'YouTube', url: 'https://www.youtube.com/@unlocktheearthpodcast', Icon: YouTubeIcon, color: '#ff0033' },
@@ -113,8 +114,16 @@ const getFreeArea = (map) => {
 	return area;
 };
 
-// Pans so the open popup sits inside the free area: always centred on phones,
-// otherwise only when part of it is hidden. A popup taller than the area keeps its top edge visible.
+// Smallest shift that brings [start, end] inside [min, max]; if it doesn't fit, align the start.
+const shiftInto = (start, end, min, max) => {
+	if (end - start > max - min || start < min) return start - min;
+	if (end > max) return end - max;
+	return 0;
+};
+
+// Pans so the open popup sits inside the free area: centred on phones; elsewhere moved only as far
+// as needed, so the rest of the view (e.g. the other stops of a shared road trip) stays put.
+// A popup taller than the area keeps its top edge visible.
 const fitPopup = (map, popup, center) => {
 	const el = popup.getElement();
 	if (!el) return;
@@ -122,12 +131,9 @@ const fitPopup = (map, popup, center) => {
 	const r = el.getBoundingClientRect();
 	const p = { top: r.top - box.top, bottom: r.bottom - box.top, left: r.left - box.left, right: r.right - box.left };
 	const free = getFreeArea(map);
-	const inside = p.top >= free.top && p.bottom <= free.bottom && p.left >= free.left && p.right <= free.right;
-	if (inside && !center) return;
-	const dx = (p.left + p.right - free.left - free.right) / 2;
-	const dy = p.bottom - p.top > free.bottom - free.top
-		? p.top - free.top
-		: (p.top + p.bottom - free.top - free.bottom) / 2;
+	const tooTall = p.bottom - p.top > free.bottom - free.top;
+	const dx = center ? (p.left + p.right - free.left - free.right) / 2 : shiftInto(p.left, p.right, free.left, free.right);
+	const dy = center && !tooTall ? (p.top + p.bottom - free.top - free.bottom) / 2 : shiftInto(p.top, p.bottom, free.top, free.bottom);
 	if (Math.abs(dx) > 1 || Math.abs(dy) > 1) map.panBy([dx, dy]);
 };
 
@@ -169,8 +175,10 @@ function App() {
 	const [timelineOn, setTimelineOn] = useState(false);
 	const [timelineIndex, setTimelineIndex] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(false);
+	const [toast, setToast] = useState(null);
 	const markerRefs = useRef(new Map());
 	const clusterRef = useRef(null);
+	const sharedLinkHandled = useRef(false);
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
@@ -215,8 +223,18 @@ function App() {
 	useEffect(() => {
 		if (!map) return undefined;
 		const onOpen = ({ popup }) => {
-			// react-leaflet renders the popup content after this event, so measure two frames later
-			requestAnimationFrame(() => requestAnimationFrame(() => fitPopup(map, popup, isCompactViewport())));
+			// react-leaflet renders the popup content after this event (later still while React is busy,
+			// e.g. right after a shared link re-renders every pin), so wait until it is there, then measure
+			const tryFit = (frames) => {
+				if (!popup.isOpen()) return;
+				const rendered = popup.getElement()?.querySelector('.popup-content');
+				if (!rendered && frames < 30) {
+					requestAnimationFrame(() => tryFit(frames + 1));
+					return;
+				}
+				requestAnimationFrame(() => fitPopup(map, popup, isCompactViewport()));
+			};
+			requestAnimationFrame(() => tryFit(0));
 		};
 		map.on('popupopen', onOpen);
 		return () => map.off('popupopen', onOpen);
@@ -301,25 +319,102 @@ function App() {
 
 	const setAllContinents = (on) => setSelectedContinents(on ? new Set(availableContinents) : new Set());
 
+	const openPlacePopup = (key) => {
+		const marker = markerRefs.current.get(key);
+		if (!marker) return;
+		// the pin may still be inside a cluster: zoom in / spiderfy until it is visible, then open it
+		if (clusterRef.current) clusterRef.current.zoomToShowLayer(marker, () => marker.openPopup());
+		else marker.openPopup();
+	};
+
+	// Runs once the current map move has finished (with a fallback in case no move happens).
+	const afterMove = (fn, fallbackMs = 1200) => {
+		let done = false;
+		const run = () => {
+			if (done) return;
+			done = true;
+			fn();
+		};
+		map.once('moveend', run);
+		setTimeout(run, fallbackMs);
+	};
+
+	const openPlacePopupAfterMove = (key) => afterMove(() => openPlacePopup(key));
+
 	const focusEpisode = (ep) => {
 		const key = placeKeyOf(ep);
 		setActiveKey(key);
 		if (isCompactViewport()) setIsCollapsed(true);
 		if (!map) return;
-		let opened = false;
-		const openPopup = () => {
-			if (opened) return;
-			opened = true;
-			const marker = markerRefs.current.get(key);
-			if (!marker) return;
-			// the pin may still be inside a cluster: zoom in / spiderfy until it is visible, then open it
-			if (clusterRef.current) clusterRef.current.zoomToShowLayer(marker, () => marker.openPopup());
-			else marker.openPopup();
-		};
-		map.once('moveend', openPopup);
-		setTimeout(openPopup, 1200); // fallback in case the map was already there and no move happens
+		openPlacePopupAfterMove(key);
 		map.flyTo([ep.coordinates.lat, ep.coordinates.lng], Math.max(map.getZoom(), 5), { duration: 0.8 });
 	};
+
+	// Shared link: one place -> fly there; several places (e.g. a road trip) -> show them all, open the first.
+	const openSharedEpisodes = (matches) => {
+		const keys = [...new Set(matches.map(placeKeyOf))];
+		if (keys.length === 1) {
+			focusEpisode(matches[0]);
+			return;
+		}
+		setActiveKey(keys[0]);
+		if (isCompactViewport()) setIsCollapsed(true);
+		afterMove(() => setTimeout(() => {
+			// open the first place that is its own pin at this zoom, so the overview stays;
+			// only zoom in if all of them are still inside clusters (clusters settle ~0.3 s after the move)
+			const key = keys.find(k => markerRefs.current.get(k)?._icon) || keys[0];			setActiveKey(key);
+			openPlacePopup(key);
+		}, 450), 1500);
+		// fit them into the part of the map the sidebar/timeline leave free, with room above for the popup
+		const free = getFreeArea(map);
+		const size = map.getSize();
+		map.flyToBounds(L.latLngBounds(matches.map(m => [m.coordinates.lat, m.coordinates.lng])), {
+			paddingTopLeft: [free.left + 30, free.top + 160],
+			paddingBottomRight: [size.x - free.right + 30, size.y - free.bottom + 30],
+			maxZoom: 8,
+			duration: 0.8,
+		});
+	};
+
+	const shareEpisode = async (ep) => {
+		const url = shareUrlFor(ep);
+		if (navigator.share && isCompactViewport()) {
+			// phones: the system share sheet (LINE, Messenger, …)
+			try { await navigator.share({ title: ep.podcast.title || ep.name, url }); } catch (_) { /* cancelled */ }
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(url);
+			setToast('已複製分享連結');
+		} catch (_) {
+			window.prompt('複製這個連結來分享：', url);
+		}
+	};
+
+	// Handle ?ep= / ?place= once, as soon as the data, the map and the intro animation are done.
+	useEffect(() => {
+		if (sharedLinkHandled.current || status !== 'ready' || !map || showOverlay) return;
+		sharedLinkHandled.current = true;
+		const params = readShareParams();
+		if (!params) return;
+		const matches = findSharedEpisodes(allLocations, params);
+		if (!matches.length) {
+			setToast('找不到這個連結指向的單集');
+			return;
+		}
+		openSharedEpisodes(matches);
+		// once the shared popup is closed, drop the parameter so the address bar matches the map again
+		map.once('popupopen', () => map.once('popupclose', () => {
+			window.history.replaceState(null, '', window.location.pathname);
+		}));
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- runs once (guarded by the ref)
+	}, [status, map, showOverlay, allLocations]);
+
+	useEffect(() => {
+		if (!toast) return undefined;
+		const timer = setTimeout(() => setToast(null), 2200);
+		return () => clearTimeout(timer);
+	}, [toast]);
 
 	const isLoading = status === 'loading';
 
@@ -509,9 +604,14 @@ function App() {
 												<li key={ep.id}>
 													{ep.name !== place.episodes[0].name && <span className="popup-subplace">{ep.name}</span>}
 													{ep.podcast.title && <span className="popup-title">{ep.podcast.title}</span>}
-													{ep.podcast.url && (
-														<a href={ep.podcast.url} target="_blank" rel="noopener noreferrer" className="popup-link">收聽 Podcast<ArrowRightIcon size={14} /></a>
-													)}
+													<div className="popup-actions">
+														{ep.podcast.url && (
+															<a href={ep.podcast.url} target="_blank" rel="noopener noreferrer" className="popup-link">收聽 Podcast</a>
+														)}
+														<button type="button" className="popup-share" onClick={() => shareEpisode(ep)} aria-label={`分享：${ep.podcast.title || ep.name}`}>
+															<ShareIcon size={14} />分享
+														</button>
+													</div>
 												</li>
 											))}
 										</ul>
@@ -556,6 +656,8 @@ function App() {
 					</button>
 				)
 			)}
+
+			{toast && <div className="toast" role="status">{toast}</div>}
 		</div>
 	);
 }

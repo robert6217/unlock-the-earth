@@ -9,6 +9,7 @@ require('dotenv').config();
 const express = require('express');
 const locationsHandler = require('./api/locations');
 const syncLatestHandler = require('./api/sync-latest');
+const sharePageHandler = require('./api/share-page');
 const { isValidCoordinate } = require('./lib/episodes');
 
 const app = express();
@@ -42,6 +43,9 @@ function mockLocationsHandler(req, res) {
 
 app.all('/api/locations', useMock ? mockLocationsHandler : locationsHandler);
 app.all('/api/sync-latest', syncLatestHandler);
+// On Vercel, /?ep=… and /?place=… are rewritten to this (vercel.json); locally call it directly.
+// It needs the app's index.html: set SHARE_HTML_ORIGIN=http://localhost:3000 while `npm start` runs.
+app.get('/api/share-page', sharePageHandler);
 
 app.listen(port, () => {
 	console.log(`API server running on http://localhost:${port}${useMock ? ' (mock data, no Notion)' : ''}`);
