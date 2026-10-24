@@ -725,3 +725,159 @@ input:checked+.slider:before {
 		animation: none;
 	}
 }
+
+/* --- Timeline --- */
+.timeline-open,
+.timeline-bar {
+	position: absolute;
+	bottom: 28px;
+	/* centered in the space between the sidebar (left) and the zoom buttons (right) */
+	left: 340px;
+	right: 80px;
+	margin: 0 auto;
+	z-index: 1000;
+	background: var(--sidebar-bg);
+	backdrop-filter: blur(10px);
+	color: var(--text-primary);
+	box-shadow: 0 8px 32px var(--shadow-color);
+}
+
+.timeline-open {
+	border: 0;
+	width: fit-content;
+	border-radius: 999px;
+	padding: 10px 18px;
+	font-size: 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.timeline-open:hover,
+.timeline-open:focus-visible {
+	color: var(--accent);
+	outline: none;
+}
+
+.timeline-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: 560px;
+	box-sizing: border-box;
+	padding: 10px 14px;
+	border-radius: 12px;
+}
+
+.timeline-bar button {
+	flex: none;
+	border: 0;
+	background: none;
+	color: var(--text-primary);
+	cursor: pointer;
+	border-radius: 6px;
+}
+
+.timeline-bar button:hover,
+.timeline-bar button:focus-visible {
+	background: var(--hover-bg);
+	outline: none;
+}
+
+.timeline-play {
+	width: 34px;
+	height: 34px;
+	font-size: 0.9rem;
+	background: var(--accent) !important;
+	color: #1a1a1a !important;
+	border-radius: 50% !important;
+}
+
+.timeline-slider {
+	flex: 1;
+	min-width: 0;
+	accent-color: var(--accent);
+	cursor: pointer;
+}
+
+.timeline-info {
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	line-height: 1.2;
+	font-variant-numeric: tabular-nums;
+}
+
+.timeline-date {
+	font-weight: 700;
+	font-size: 0.9rem;
+}
+
+.timeline-count {
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+
+.timeline-speed {
+	min-width: 34px;
+	padding: 4px 6px;
+	font-size: 0.8rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+.timeline-close {
+	padding: 4px 8px;
+	font-size: 0.9rem;
+	color: var(--text-secondary) !important;
+}
+
+/* Pins released on the current timeline date */
+.custom-pin-icon.fresh svg {
+	animation: pin-pop 0.6s ease-out;
+	filter: drop-shadow(0 0 6px rgba(241, 196, 15, 0.9));
+}
+
+@keyframes pin-pop {
+	0% {
+		transform: translateY(-14px) scale(0.4);
+		opacity: 0;
+	}
+
+	60% {
+		transform: translateY(2px) scale(1.15);
+		opacity: 1;
+	}
+
+	100% {
+		transform: none;
+	}
+}
+
+@media (max-width: 600px) {
+	/* The sidebar is a bottom sheet here, so the timeline moves to the top. */
+	.timeline-open,
+	.timeline-bar {
+		top: 12px;
+		bottom: auto;
+	}
+
+	.timeline-open {
+		left: 12px;
+		right: 12px;
+	}
+
+	.timeline-bar {
+		left: 12px;
+		right: 12px;
+		max-width: none;
+		gap: 8px;
+		padding: 8px 10px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.custom-pin-icon.fresh svg {
+		animation: none;
+	}
+}

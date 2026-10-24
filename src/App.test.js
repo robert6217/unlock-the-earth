@@ -18,8 +18,8 @@ jest.mock('react-leaflet', () => {
 const mockData = {
 	latest: { id: 'x', name: 'YouTube 最新上架', podcast: { title: 'Ep.999 測試最新單集', url: 'https://youtu.be/x' } },
 	locations: [
-		{ id: '1', name: '京都', continent: '亞洲', coordinates: { lat: 35.01, lng: 135.76 }, podcast: { title: 'Ep.235 東京到京都的浮世繪之路', url: 'https://youtu.be/a' } },
-		{ id: '2', name: '雷克雅維克', continent: '歐洲', coordinates: { lat: 64.14, lng: -21.94 }, podcast: { title: 'Ep.100 冰島', url: 'https://youtu.be/b' } },
+		{ id: '1', name: '京都', continent: '亞洲', coordinates: { lat: 35.01, lng: 135.76 }, publishedAt: '2024-01-02', podcast: { title: 'Ep.235 東京到京都的浮世繪之路', url: 'https://youtu.be/a' } },
+		{ id: '2', name: '雷克雅維克', continent: '歐洲', coordinates: { lat: 64.14, lng: -21.94 }, publishedAt: '2025-06-03', podcast: { title: 'Ep.100 冰島', url: 'https://youtu.be/b' } },
 	],
 };
 
@@ -49,4 +49,19 @@ test('shows an error with retry when the API fails', async () => {
 	render(<App />);
 	expect(await screen.findByRole('alert')).toBeInTheDocument();
 	expect(screen.getByText('重新載入')).toBeInTheDocument();
+});
+
+test('timeline reveals episodes up to the selected release date', async () => {
+	render(<App />);
+	await screen.findByText(/顯示 2 集/);
+	fireEvent.click(await screen.findByText('▶ 時間軸播放', {}, { timeout: 3000 })); // shown after the loading overlay
+	expect(screen.getByText('2024/01/02')).toBeInTheDocument();
+	expect(screen.getByText('已解鎖 1 集')).toBeInTheDocument();
+
+	fireEvent.change(screen.getByLabelText('時間軸'), { target: { value: '1' } });
+	expect(screen.getByText('2025/06/03')).toBeInTheDocument();
+	expect(screen.getByText('已解鎖 2 集')).toBeInTheDocument();
+
+	fireEvent.click(screen.getByLabelText('關閉時間軸'));
+	expect(screen.getByText(/顯示 2 集/)).toBeInTheDocument();
 });

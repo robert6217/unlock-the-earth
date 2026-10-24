@@ -7,6 +7,8 @@ const API_URL = '/api/locations';
 const MIN_LOADING_MS = 1200; // keep the spinning earth on screen briefly, but never add a fixed delay after loading
 const MAX_SEARCH_RESULTS = 30;
 const CONTINENT_ORDER = ['亞洲', '歐洲', '非洲', '北美洲', '中美洲', '南美洲', '大洋洲', '澳洲', '南極洲', '其他'];
+const TIMELINE_STEP_MS = 450; // one release date per step at 1x
+const TIMELINE_SPEEDS = [1, 2, 4];
 
 // CARTO basemaps now draw an "API KEY REQUIRED" watermark without a key. The key is a
 // public client-side key (it ships in the bundle either way); REACT_APP_CARTO_API_KEY overrides it.
@@ -21,10 +23,10 @@ const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyrigh
 const PIN_PATH = 'M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z';
 const HOLE_PATH = 'M 192 132 a 60 60 0 1 0 0 120 a 60 60 0 1 0 0 -120';
 
-const createPinIcon = (width, height, { count = 1, active = false } = {}) => {
+const createPinIcon = (width, height, { count = 1, active = false, fresh = false } = {}) => {
 	const badge = count > 1 ? `<span class="pin-badge">${count}</span>` : '';
 	return L.divIcon({
-		className: `custom-pin-icon${active ? ' active' : ''}`,
+		className: `custom-pin-icon${active ? ' active' : ''}${fresh ? ' fresh' : ''}`,
 		html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="${width}" height="${height}">
 				<path fill="${active ? '#ff4757' : '#f1c40f'}" stroke="#333" stroke-width="15" fill-rule="evenodd" d="${PIN_PATH} ${HOLE_PATH}"/>
 			</svg>${badge}`,
@@ -35,11 +37,13 @@ const createPinIcon = (width, height, { count = 1, active = false } = {}) => {
 };
 
 const iconCache = new Map();
-const getPinIcon = (count, active) => {
-	const key = `${Math.min(count, 99)}-${active}`;
-	if (!iconCache.has(key)) iconCache.set(key, createPinIcon(20, 30, { count, active }));
+const getPinIcon = (count, active, fresh = false) => {
+	const key = `${Math.min(count, 99)}-${active}-${fresh}`;
+	if (!iconCache.has(key)) iconCache.set(key, createPinIcon(20, 30, { count, active, fresh }));
 	return iconCache.get(key);
 };
+
+const formatDate = (iso) => iso.replace(/-/g, '/');
 
 const readStoredTheme = () => {
 	try {
@@ -76,6 +80,10 @@ function App() {
 	const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 600);
 	const [isDarkMode, setIsDarkMode] = useState(readStoredTheme);
 	const [map, setMap] = useState(null);
+	const [timelineOn, setTimelineOn] = useState(false);
+	const [timelineIndex, setTimelineIndex] = useState(0);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [speed, setSpeed] = useState(1);
 	const markerRefs = useRef(new Map());
 
 	useEffect(() => {
@@ -134,13 +142,49 @@ function App() {
 
 	const normalizedQuery = normalize(query);
 
+	// Distinct release dates, oldest first; each timeline step reveals the episodes of one date.
+	const timelineDates = useMemo(
+		() => [...new Set(allLocations.map(l => l.publishedAt).filter(Boolean))].sort(),
+		[allLocations]
+	);
+	const cutoff = timelineOn ? timelineDates[Math.min(timelineIndex, timelineDates.length - 1)] : null;
+
 	const filteredLocations = useMemo(() => allLocations.filter(loc => {
 		if (!selectedContinents.has(loc.continent)) return false;
+		if (cutoff && !(loc.publishedAt && loc.publishedAt <= cutoff)) return false;
 		if (!normalizedQuery) return true;
 		return normalize(loc.name).includes(normalizedQuery) || normalize(loc.podcast.title).includes(normalizedQuery);
-	}), [allLocations, selectedContinents, normalizedQuery]);
+	}), [allLocations, selectedContinents, normalizedQuery, cutoff]);
 
 	const places = useMemo(() => groupByPlace(filteredLocations), [filteredLocations]);
+
+	useEffect(() => {
+		if (!isPlaying) return undefined;
+		const timer = setInterval(() => {
+			setTimelineIndex(i => Math.min(i + 1, timelineDates.length - 1));
+		}, TIMELINE_STEP_MS / speed);
+		return () => clearInterval(timer);
+	}, [isPlaying, speed, timelineDates.length]);
+
+	useEffect(() => {
+		if (isPlaying && timelineIndex >= timelineDates.length - 1) setIsPlaying(false);
+	}, [isPlaying, timelineIndex, timelineDates.length]);
+
+	const openTimeline = () => {
+		setTimelineOn(true);
+		setTimelineIndex(0);
+		setIsPlaying(true);
+	};
+
+	const closeTimeline = () => {
+		setIsPlaying(false);
+		setTimelineOn(false);
+	};
+
+	const togglePlay = () => {
+		if (!isPlaying && timelineIndex >= timelineDates.length - 1) setTimelineIndex(0); // replay from the start
+		setIsPlaying(p => !p);
+	};
 
 	const toggleContinent = (continent) => {
 		setSelectedContinents(prev => {
@@ -336,7 +380,11 @@ function App() {
 						<Marker
 							key={place.key}
 							position={place.position}
-							icon={getPinIcon(place.episodes.length, place.key === activeKey)}
+							icon={getPinIcon(
+								place.episodes.length,
+								place.key === activeKey,
+								Boolean(cutoff) && place.episodes.some(ep => ep.publishedAt === cutoff)
+							)}
 							ref={(m) => { if (m) markerRefs.current.set(place.key, m); else markerRefs.current.delete(place.key); }}
 							eventHandlers={{ click: () => setActiveKey(place.key) }}
 						>
@@ -361,6 +409,48 @@ function App() {
 					))}
 				</MapContainer>
 			</div>
+
+			{!showOverlay && timelineDates.length > 1 && (
+				timelineOn ? (
+					<div className="timeline-bar" role="group" aria-label="時間軸播放">
+						<button
+							type="button"
+							className="timeline-play"
+							onClick={togglePlay}
+							aria-label={isPlaying ? '暫停' : '播放'}
+						>
+							{isPlaying ? '❚❚' : '▶'}
+						</button>
+						<input
+							type="range"
+							className="timeline-slider"
+							min={0}
+							max={timelineDates.length - 1}
+							value={Math.min(timelineIndex, timelineDates.length - 1)}
+							onChange={(e) => { setIsPlaying(false); setTimelineIndex(Number(e.target.value)); }}
+							aria-label="時間軸"
+							aria-valuetext={formatDate(cutoff)}
+						/>
+						<div className="timeline-info">
+							<span className="timeline-date">{formatDate(cutoff)}</span>
+							<span className="timeline-count">已解鎖 {filteredLocations.length} 集</span>
+						</div>
+						<button
+							type="button"
+							className="timeline-speed"
+							onClick={() => setSpeed(s => TIMELINE_SPEEDS[(TIMELINE_SPEEDS.indexOf(s) + 1) % TIMELINE_SPEEDS.length])}
+							aria-label={`播放速度 ${speed} 倍`}
+						>
+							{speed}x
+						</button>
+						<button type="button" className="timeline-close" onClick={closeTimeline} aria-label="關閉時間軸">✕</button>
+					</div>
+				) : (
+					<button type="button" className="timeline-open" onClick={openTimeline}>
+						▶ 時間軸播放
+					</button>
+				)
+			)}
 		</div>
 	);
 }

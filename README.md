@@ -27,6 +27,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * **⚡ Optimized Data Fetching**: The backend implements pagination loops to handle Notion API limits, and the response is cached on Vercel's CDN (10 min, stale-while-revalidate) so page views don't hit Notion every time.
 * **🔎 Search**: Search episodes by city, country, title or episode number; click a result to fly to it on the map.
 * **📌 Grouped Markers**: Episodes recorded at the same place share one pin with a count badge; the popup lists all of them.
+* **🕰 Timeline Playback**: Press "▶ 時間軸播放" to watch the map fill up in release order, one release date per step (1x / 2x / 4x, or drag the slider).
 * **🤖 Weekly Sync**: A Vercel Cron job adds new YouTube episodes to Notion every week (see below).
 
 ## Tech Stack
@@ -45,7 +46,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * [ ] Notify after each weekly sync (email / Discord / LINE): which episodes were added and which still need a location, plus an alert when the sync fails.
 * [ ] Shareable episode links (e.g. `?ep=288` or `/place/冰島`) that fly to the place and open its popup, with per-episode Open Graph preview cards.
 * [ ] Marker clustering when zoomed out (e.g. `react-leaflet-cluster`), so dense areas like Europe and Japan stay readable.
-* [ ] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
+* [x] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
 * [ ] Footprint stats: shade visited countries and show "countries unlocked" plus per-continent progress.
 * [ ] Guest filter: parse guests from `ft.` / `with` in titles and list all episodes for a guest.
 * [ ] "Take me somewhere" button that flies to a random episode.
@@ -90,6 +91,8 @@ npm run smoke -- https://<preview>.vercel.app   # same checks against a Vercel p
 `vercel.json` schedules `/api/sync-latest` every Wednesday 04:00 UTC (12:00 Taiwan time). It reads the channel's YouTube RSS feed and skips Shorts and episodes already in Notion (matched by YouTube video ID).
 
 **With `ANTHROPIC_API_KEY` set**, each new title is sent to Claude, which lists the places the episode is about (Traditional Chinese name, continent, an English geocoding query). Each place is geocoded with OpenStreetMap Nominatim; if Nominatim finds nothing or lands more than 300 km from Claude's own estimate, Claude's estimate is used. One row is created per place with `Name`, `Continent`, `Lat`, `Lng`, `PodcastTitle`, `PodcastUrl` and **`NeedsReview` checked**. These rows stay **off the map** until reviewed — filter Notion by `NeedsReview`, fix anything wrong, and untick it; the pin appears after the cache refreshes (≤ 10 min).
+
+Every new row also gets `PublishedAt` (the YouTube upload date), which the timeline uses. Existing rows were filled once from the podcast RSS feed with `node scripts/backfill-published-at.js --write` (safe to re-run; it only fills empty dates).
 
 Episodes with no clear place (or when the suggestion fails, or without the API key) get one row with `Name = 待補地點` and no coordinates. Rows without `Lat`/`Lng` are **not shown on the map**; fill in `Name`, `Continent`, `Lat`, `Lng` in Notion and the episode appears after the cache refreshes (≤ 10 min).
 
