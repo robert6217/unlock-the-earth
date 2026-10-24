@@ -3,6 +3,9 @@ import App from './App';
 
 // react-leaflet is ESM-only and needs a real layout engine; jsdom has neither,
 // so the map is replaced with plain elements. The sidebar logic is what we test here.
+// react-leaflet-cluster is ESM-only too; render its children directly.
+jest.mock('react-leaflet-cluster', () => ({ children }) => children);
+
 jest.mock('react-leaflet', () => {
 	const React = require('react');
 	const Pass = ({ children }) => React.createElement('div', null, children);

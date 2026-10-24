@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css'; // animations + spider legs; the bubbles are styled in App.css
 import './App.css';
 import {
 	FlameIcon, SearchIcon, GlobeIcon, HeadphonesIcon, PlayIcon, PauseIcon, CloseIcon, ArrowRightIcon,
@@ -54,6 +56,39 @@ const getPinIcon = (count, active, fresh = false) => {
 };
 
 const formatDate = (iso) => iso.replace(/-/g, '/');
+
+// Zoomed out, nearby pins merge into one bubble showing how many episodes it holds; clicking it
+// zooms in. Pins that still overlap at the map's max zoom (e.g. several London neighbourhoods)
+// fan out ("spiderfy") instead, so every one of them stays clickable.
+const MAX_ZOOM = 12; // city level; the map has no street-level content
+const CLUSTER_OPTIONS = {
+	maxClusterRadius: 45,
+	showCoverageOnHover: false,
+	spiderfyOnMaxZoom: true,
+	spiderLegPolylineOptions: { weight: 1.5, color: '#f1c40f', opacity: 0.8 },
+	chunkedLoading: true,
+};
+
+// Heat levels: the more episodes in a cluster, the deeper its yellow (colours in App.css .heat-1 … .heat-5).
+const HEAT_LEVELS = [
+	{ min: 2, label: '2–3' },
+	{ min: 4, label: '4–6' },
+	{ min: 7, label: '7–10' },
+	{ min: 11, label: '11–19' },
+	{ min: 20, label: '20+' },
+];
+const heatLevelOf = (count) => HEAT_LEVELS.filter(l => count >= l.min).length || 1;
+
+const createClusterIcon = (cluster) => {
+	// count episodes, not pins: a pin can hold several episodes (see groupByPlace)
+	const count = cluster.getAllChildMarkers().reduce((n, m) => n + (m.options.episodeCount || 1), 0);
+	const size = count < 10 ? 34 : count < 50 ? 40 : 46;
+	return L.divIcon({
+		html: `<div class="cluster-bubble heat-${heatLevelOf(count)}"><span>${count}</span></div>`,
+		className: 'episode-cluster',
+		iconSize: L.point(size, size),
+	});
+};
 
 // Phones (portrait: bottom sheet) and landscape phones (very little height) start with the sidebar collapsed.
 const isCompactViewport = () => window.innerWidth < 600 || window.innerHeight < 500;
@@ -135,6 +170,7 @@ function App() {
 	const [timelineIndex, setTimelineIndex] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const markerRefs = useRef(new Map());
+	const clusterRef = useRef(null);
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
@@ -184,6 +220,15 @@ function App() {
 		};
 		map.on('popupopen', onOpen);
 		return () => map.off('popupopen', onOpen);
+	}, [map]);
+
+	// Clicking empty map (which also closes the popup) turns the red active pin back to yellow.
+	// Marker and cluster clicks don't reach the map, so they keep working as before.
+	useEffect(() => {
+		if (!map) return undefined;
+		const clearActive = () => setActiveKey(null);
+		map.on('click', clearActive);
+		return () => map.off('click', clearActive);
 	}, [map]);
 
 	const continentCounts = useMemo(() => {
@@ -265,7 +310,11 @@ function App() {
 		const openPopup = () => {
 			if (opened) return;
 			opened = true;
-			markerRefs.current.get(key)?.openPopup();
+			const marker = markerRefs.current.get(key);
+			if (!marker) return;
+			// the pin may still be inside a cluster: zoom in / spiderfy until it is visible, then open it
+			if (clusterRef.current) clusterRef.current.zoomToShowLayer(marker, () => marker.openPopup());
+			else marker.openPopup();
 		};
 		map.once('moveend', openPopup);
 		setTimeout(openPopup, 1200); // fallback in case the map was already there and no move happens
@@ -405,6 +454,14 @@ function App() {
 				</div>
 
 				<div className="sidebar-footer">
+					<div className="heat-legend" aria-label="地圖上的叢集顏色越深，代表該區域的集數越多">
+						<span>集數</span>
+						<span className="heat-legend-end">少</span>
+						{HEAT_LEVELS.map((level, i) => (
+							<i key={level.min} className={`heat-swatch heat-${i + 1}`} title={`${level.label} 集`} />
+						))}
+						<span className="heat-legend-end">多</span>
+					</div>
 					{isLoading ? '載入中…' : `顯示 ${filteredLocations.length} 集・${places.length} 個地點`}
 				</div>
 			</aside>
@@ -415,6 +472,7 @@ function App() {
 					center={[20, 0]}
 					zoom={3}
 					minZoom={2}
+					maxZoom={MAX_ZOOM}
 					maxBounds={[[-90, -180], [90, 180]]}
 					maxBoundsViscosity={0.5}
 					worldCopyJump={false}
@@ -428,37 +486,40 @@ function App() {
 					/>
 					<ZoomControl position="bottomright" />
 
-					{places.map(place => (
-						<Marker
-							key={place.key}
-							position={place.position}
-							icon={getPinIcon(
-								place.episodes.length,
-								place.key === activeKey,
-								Boolean(cutoff) && place.episodes.some(ep => ep.publishedAt === cutoff)
-							)}
-							ref={(m) => { if (m) markerRefs.current.set(place.key, m); else markerRefs.current.delete(place.key); }}
-							eventHandlers={{ click: () => setActiveKey(place.key) }}
-						>
-							<Popup maxWidth={280} autoPan={false}>
-								<div className="popup-content">
-									<strong className="popup-place">{place.episodes[0].name}</strong>
-									{place.episodes.length > 1 && <span className="popup-count">{place.episodes.length} 集</span>}
-									<ul className="popup-list">
-										{place.episodes.map(ep => (
-											<li key={ep.id}>
-												{ep.name !== place.episodes[0].name && <span className="popup-subplace">{ep.name}</span>}
-												{ep.podcast.title && <span className="popup-title">{ep.podcast.title}</span>}
-												{ep.podcast.url && (
-													<a href={ep.podcast.url} target="_blank" rel="noopener noreferrer" className="popup-link">收聽 Podcast<ArrowRightIcon size={14} /></a>
-												)}
-											</li>
-										))}
-									</ul>
-								</div>
-							</Popup>
-						</Marker>
-					))}
+					<MarkerClusterGroup ref={clusterRef} iconCreateFunction={createClusterIcon} {...CLUSTER_OPTIONS}>
+						{places.map(place => (
+							<Marker
+								key={place.key}
+								position={place.position}
+								episodeCount={place.episodes.length}
+								icon={getPinIcon(
+									place.episodes.length,
+									place.key === activeKey,
+									Boolean(cutoff) && place.episodes.some(ep => ep.publishedAt === cutoff)
+								)}
+								ref={(m) => { if (m) markerRefs.current.set(place.key, m); else markerRefs.current.delete(place.key); }}
+								eventHandlers={{ click: () => setActiveKey(place.key) }}
+							>
+								<Popup maxWidth={280} autoPan={false}>
+									<div className="popup-content">
+										<strong className="popup-place">{place.episodes[0].name}</strong>
+										{place.episodes.length > 1 && <span className="popup-count">{place.episodes.length} 集</span>}
+										<ul className="popup-list">
+											{place.episodes.map(ep => (
+												<li key={ep.id}>
+													{ep.name !== place.episodes[0].name && <span className="popup-subplace">{ep.name}</span>}
+													{ep.podcast.title && <span className="popup-title">{ep.podcast.title}</span>}
+													{ep.podcast.url && (
+														<a href={ep.podcast.url} target="_blank" rel="noopener noreferrer" className="popup-link">收聽 Podcast<ArrowRightIcon size={14} /></a>
+													)}
+												</li>
+											))}
+										</ul>
+									</div>
+								</Popup>
+							</Marker>
+						))}
+					</MarkerClusterGroup>
 				</MapContainer>
 			</div>
 

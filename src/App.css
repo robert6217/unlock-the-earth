@@ -712,6 +712,79 @@ input:checked+.slider:before {
 	transform: scale(1.25) translateY(-4px);
 }
 
+/* --- Marker clusters: same yellow as the pins, with a soft halo --- */
+.episode-cluster {
+	background: none;
+	border: none;
+}
+
+.cluster-bubble {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	background: var(--heat);
+	color: var(--heat-text, #1a1a1a);
+	font-size: 0.8rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	/* the halo grows with the level, so busy areas read as "hot zones" */
+	box-shadow: 0 0 0 var(--heat-spread) var(--heat-glow), 0 3px 8px rgba(0, 0, 0, 0.3);
+	transition: transform 0.15s ease;
+}
+
+[data-theme="dark"] .cluster-bubble {
+	border-color: #1e1e1e;
+	box-shadow: 0 0 0 var(--heat-spread) var(--heat-glow), 0 3px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* Heat levels (see HEAT_LEVELS in App.js): pale yellow → deep amber as the episode count rises */
+.heat-1 { --heat: #fde68a; --heat-glow: rgba(253, 230, 138, 0.45); --heat-spread: 4px; }
+.heat-2 { --heat: #fcd34d; --heat-glow: rgba(252, 211, 77, 0.45); --heat-spread: 6px; }
+.heat-3 { --heat: #f1c40f; --heat-glow: rgba(241, 196, 15, 0.42); --heat-spread: 8px; }
+.heat-4 { --heat: #dc9a00; --heat-glow: rgba(220, 154, 0, 0.42); --heat-spread: 10px; }
+.heat-5 { --heat: #a86400; --heat-glow: rgba(168, 100, 0, 0.45); --heat-spread: 13px; --heat-text: #fff; }
+
+/* Legend in the sidebar footer */
+.heat-legend {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	margin-bottom: 6px;
+	font-size: 0.75rem;
+}
+
+.heat-legend > span:first-child {
+	margin-right: 4px;
+}
+
+.heat-legend-end {
+	font-size: 0.7rem;
+}
+
+.heat-swatch {
+	width: 14px;
+	height: 10px;
+	border-radius: 3px;
+	background: var(--heat);
+}
+
+/* the collapsed sheet / sidebar only keeps the episode count */
+.sidebar-container.collapsed .heat-legend {
+	display: none;
+}
+
+@media (hover: hover) {
+	.episode-cluster:hover .cluster-bubble {
+		transform: scale(1.1);
+	}
+}
+
 /* --- Popup --- */
 .popup-content {
 	max-height: 260px;

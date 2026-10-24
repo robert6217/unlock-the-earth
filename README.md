@@ -27,6 +27,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * **⚡ Optimized Data Fetching**: The backend implements pagination loops to handle Notion API limits, and the response is cached on Vercel's CDN (10 min, stale-while-revalidate) so page views don't hit Notion every time.
 * **🔎 Search**: Search episodes by city, country, title or episode number; click a result to fly to it on the map.
 * **📌 Grouped Markers**: Episodes recorded at the same place share one pin with a count badge; the popup lists all of them.
+* **🔥 Marker Clustering**: Zoomed out, nearby pins merge into bubbles showing how many episodes the area holds — the deeper the yellow and the bigger the glow, the more episodes. Click a bubble to zoom in; pins that still overlap at city level fan out.
 * **🕰 Timeline Playback**: Press "▶ 時間軸播放" to watch the map fill up in release order, one release date per step (or drag the slider).
 * **🤖 Weekly Sync**: A Vercel Cron job adds new YouTube episodes to Notion every week (see below).
 
@@ -45,7 +46,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * [x] Suggest coordinates for new episodes automatically: extract the place name from the title (e.g. with the Claude API), geocode it, and write it to Notion with a "needs review" checkbox. *(see Weekly Episode Sync)*
 * [ ] Notify after each weekly sync (email / Discord / LINE): which episodes were added and which still need a location, plus an alert when the sync fails.
 * [ ] Shareable episode links (e.g. `?ep=288` or `/place/冰島`) that fly to the place and open its popup, with per-episode Open Graph preview cards.
-* [ ] Marker clustering when zoomed out (e.g. `react-leaflet-cluster`), so dense areas like Europe and Japan stay readable.
+* [x] Marker clustering when zoomed out (e.g. `react-leaflet-cluster`), so dense areas like Europe and Japan stay readable. *(bubbles are shaded by episode count)*
 * [x] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
 * [ ] Footprint stats: shade visited countries and show "countries unlocked" plus per-continent progress.
 * [ ] Guest filter: parse guests from `ft.` / `with` in titles and list all episodes for a guest.
