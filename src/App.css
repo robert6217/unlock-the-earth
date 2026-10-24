@@ -13,6 +13,7 @@
 	--shadow-color: rgba(0, 0, 0, 0.15);
 	--overlay-bg: rgba(255, 255, 255, 0.6);
 	--accent: #f1c40f;
+	--icon-accent: #f39c12; /* section icons: the sun's orange reads better than yellow on white */
 	--hover-bg: rgba(0, 0, 0, 0.05);
 }
 
@@ -30,6 +31,7 @@
 	--checkmark-bg: #f1c40f;
 	--shadow-color: rgba(0, 0, 0, 0.5);
 	--overlay-bg: rgba(18, 18, 18, 0.7);
+	--icon-accent: #f1c40f;
 	--hover-bg: rgba(255, 255, 255, 0.08);
 }
 
@@ -64,10 +66,7 @@ body,
 /* --- Loading Overlay --- */
 .loading-overlay {
 	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100vw;
-	height: 100vh;
+	inset: 0; /* 100vh is taller than the visible area on mobile browsers */
 	background-color: var(--overlay-bg);
 	display: flex;
 	flex-direction: column;
@@ -138,8 +137,13 @@ body,
 .sidebar-container {
 	position: absolute;
 	top: 20px;
-	left: 20px;
-	width: 260px;
+	left: max(20px, env(safe-area-inset-left));
+	width: 300px;
+	box-sizing: border-box;
+	/* never taller than the screen: the content area scrolls instead (tablet landscape, short windows) */
+	display: flex;
+	flex-direction: column;
+	max-height: calc(100% - 40px);
 
 	background: var(--sidebar-bg);
 	backdrop-filter: blur(10px);
@@ -231,18 +235,17 @@ body,
 	border-radius: 34px;
 }
 
+/* Knob with a sun / moon icon. SVG backgrounds sit in the exact centre of the knob
+   (emoji are drawn on a text baseline and drifted down). */
 .slider:before {
 	position: absolute;
-	content: "☀️";
-	font-size: 14px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	content: "";
 	height: 20px;
 	width: 20px;
 	left: 3px;
 	bottom: 3px;
-	background-color: white;
+	background: white no-repeat center / 14px 14px;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f39c12' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4.2' fill='%23f39c12'/%3E%3Cpath d='M12 2v2.2M12 19.8V22M4.93 4.93l1.56 1.56M17.51 17.51l1.56 1.56M2 12h2.2M19.8 12H22M4.93 19.07l1.56-1.56M17.51 6.49l1.56-1.56'/%3E%3C/svg%3E");
 	transition: .4s;
 	border-radius: 50%;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -254,14 +257,17 @@ input:checked+.slider {
 
 input:checked+.slider:before {
 	transform: translateX(24px);
-	content: "🌙";
 	background-color: #1a1a1a;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f1c40f' d='M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z'/%3E%3C/svg%3E");
 }
 
 /* --- Sidebar Content Area --- */
 .sidebar-content {
 	max-height: 85vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow-y: auto;
+	overscroll-behavior: contain;
 	overflow-x: hidden;
 	transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out;
 	opacity: 1;
@@ -272,7 +278,12 @@ input:checked+.slider:before {
 	max-height: 0;
 	opacity: 0;
 	margin-top: 0;
+	padding-bottom: 0;
 	overflow: hidden;
+}
+
+.sidebar-container.collapsed .sidebar-footer {
+	margin-top: 8px;
 }
 
 .sidebar-container.collapsed .subtitle {
@@ -328,14 +339,13 @@ input:checked+.slider:before {
 	transition: all 0.2s ease;
 }
 
-.play-btn:hover {
-	opacity: 0.9;
-	transform: translateY(-2px);
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.yt-icon {
-	color: #FF0000;
+/* hover effects only where a mouse can hover; on touch screens they stick after a tap */
+@media (hover: hover) {
+	.play-btn:hover {
+		opacity: 0.9;
+		transform: translateY(-2px);
+		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+	}
 }
 
 /* --- Checkbox Filters --- */
@@ -355,8 +365,10 @@ input:checked+.slider:before {
 	transition: transform 0.2s;
 }
 
-.custom-checkbox-wrapper:hover {
-	transform: translateX(5px);
+@media (hover: hover) {
+	.custom-checkbox-wrapper:hover {
+		transform: translateX(5px);
+	}
 }
 
 .custom-checkbox-wrapper input {
@@ -378,29 +390,14 @@ input:checked+.slider:before {
 	border: 1px solid var(--checkbox-border);
 }
 
+/* Check icon as a centred SVG background (the old rotated border sat right of centre) */
 .custom-checkbox-wrapper input:checked~.checkmark {
 	background-color: var(--checkmark-bg);
 	border-color: var(--checkmark-bg);
-}
-
-.checkmark:after {
-	content: "";
-	position: absolute;
-	display: none;
-}
-
-.custom-checkbox-wrapper input:checked~.checkmark:after {
-	display: block;
-}
-
-.custom-checkbox-wrapper .checkmark:after {
-	left: 7px;
-	top: 3px;
-	width: 5px;
-	height: 10px;
-	border: solid white;
-	border-width: 0 2px 2px 0;
-	transform: rotate(45deg);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 14px 14px;
 }
 
 .label-text {
@@ -409,33 +406,54 @@ input:checked+.slider:before {
 	font-weight: 500;
 }
 
-/* --- Social Badges (Shields.io) --- */
-.social-badges {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
+/* --- Listening platforms --- */
+.platform-links {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
 	margin-top: 10px;
 }
 
-.social-badges a {
+.platform-link {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 40px;
+	padding: 0 10px;
+	box-sizing: border-box;
+	border: 1px solid var(--border-color);
+	border-radius: 10px;
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	font-size: 0.8rem;
+	font-weight: 600;
+	line-height: 1.15;
 	text-decoration: none;
-	line-height: 0;
-	transition: transform 0.2s ease, opacity 0.2s;
+	transition: border-color 0.2s, background-color 0.2s, transform 0.2s;
 }
 
-.social-badges a:hover {
-	transform: translateY(-2px);
-	opacity: 0.8;
+.platform-link svg {
+	flex: none;
 }
 
-.social-badges img {
-	height: 30px;
-	/* 稍微放大一點點，比較好按 */
-	display: block;
+.platform-link:focus-visible {
+	outline: 2px solid var(--brand);
+	outline-offset: 1px;
+}
+
+@media (hover: hover) {
+	.platform-link:hover {
+		border-color: var(--brand);
+		background: color-mix(in srgb, var(--brand) 10%, var(--bg-secondary));
+		transform: translateY(-1px);
+	}
 }
 
 /* --- Shared Styles --- */
 .section-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	margin: 5px 0 10px 0;
 	font-size: 0.85rem;
 	color: var(--text-secondary);
@@ -443,6 +461,11 @@ input:checked+.slider:before {
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	text-align: left;
+}
+
+.section-icon {
+	flex: none;
+	color: var(--icon-accent);
 }
 
 .divider {
@@ -472,8 +495,10 @@ input:checked+.slider:before {
 	transition: transform 0.2s;
 }
 
-.custom-pin-icon:hover svg {
-	transform: scale(1.1) translateY(-5px);
+@media (hover: hover) {
+	.custom-pin-icon:hover svg {
+		transform: scale(1.1) translateY(-5px);
+	}
 }
 
 /* --- Mobile / Responsive --- */
@@ -485,13 +510,28 @@ input:checked+.slider:before {
 		right: 0;
 		width: 100%;
 
+		/* expanded sheet stops below the timeline bar instead of covering it */
+		max-height: calc(100% - 72px - env(safe-area-inset-top));
 		border-radius: 20px 20px 0 0;
-		padding: 15px 20px;
+		padding: 22px 20px calc(12px + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 		z-index: 2000;
 		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
 
 		transform: translateY(100%);
+	}
+
+	/* grab handle: shows the sheet can be opened */
+	.sidebar-container::before {
+		content: '';
+		position: absolute;
+		top: 8px;
+		left: 50%;
+		width: 36px;
+		height: 4px;
+		margin-left: -18px;
+		border-radius: 2px;
+		background: var(--border-color);
 	}
 
 	.sidebar-container.visible {
@@ -503,7 +543,17 @@ input:checked+.slider:before {
 	}
 
 	.sidebar-content {
-		max-height: 60vh;
+		max-height: none;
+	}
+
+	.sidebar-container.collapsed .sidebar-footer {
+		margin-top: 4px;
+		padding-top: 6px;
+	}
+
+	/* zoom buttons and map attribution sit above the collapsed sheet instead of under it */
+	.app-root .leaflet-bottom { /* .app-root: leaflet.css loads after this file */
+		bottom: calc(104px + env(safe-area-inset-bottom));
 	}
 
 	.sidebar-container.collapsed .toggle-btn {
@@ -705,6 +755,12 @@ input:checked+.slider:before {
 	line-height: 1.4;
 }
 
+.popup-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+}
+
 [data-theme="dark"] .leaflet-popup-content-wrapper,
 [data-theme="dark"] .leaflet-popup-tip {
 	background: #1e1e1e;
@@ -743,6 +799,9 @@ input:checked+.slider:before {
 }
 
 .timeline-open {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	border: 0;
 	width: fit-content;
 	border-radius: 999px;
@@ -783,10 +842,16 @@ input:checked+.slider:before {
 	outline: none;
 }
 
+.timeline-play,
+.timeline-close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .timeline-play {
 	width: 34px;
 	height: 34px;
-	font-size: 0.9rem;
 	background: var(--accent) !important;
 	color: #1a1a1a !important;
 	border-radius: 50% !important;
@@ -820,8 +885,7 @@ input:checked+.slider:before {
 
 
 .timeline-close {
-	padding: 4px 8px;
-	font-size: 0.9rem;
+	padding: 6px;
 	color: var(--text-secondary) !important;
 }
 
@@ -851,7 +915,7 @@ input:checked+.slider:before {
 	/* The sidebar is a bottom sheet here, so the timeline moves to the top. */
 	.timeline-open,
 	.timeline-bar {
-		top: 12px;
+		top: calc(12px + env(safe-area-inset-top));
 		bottom: auto;
 	}
 
@@ -872,5 +936,96 @@ input:checked+.slider:before {
 @media (prefers-reduced-motion: reduce) {
 	.custom-pin-icon.fresh svg {
 		animation: none;
+	}
+}
+
+/* --- Responsive refinements --- */
+
+/* Phones: 16px stops iOS Safari from zooming the page when the search box gets focus */
+@media (max-width: 600px) {
+	.search-box input {
+		font-size: 16px;
+	}
+}
+
+/* Tablets (portrait iPad and similar): narrower sidebar leaves more map and a wider timeline */
+@media (min-width: 601px) and (max-width: 1024px) {
+	.sidebar-container {
+		width: 262px;
+		padding: 16px;
+	}
+
+	.timeline-open,
+	.timeline-bar {
+		left: 290px;
+		right: 70px;
+	}
+}
+
+/* Landscape phones: very little height, so a compact sidebar and a lower timeline bar */
+@media (min-width: 601px) and (max-height: 500px) {
+	.sidebar-container {
+		top: 10px;
+		left: max(10px, env(safe-area-inset-left));
+		width: 248px;
+		max-height: calc(100% - 20px);
+		padding: 12px 14px;
+	}
+
+	.subtitle {
+		margin-bottom: 8px;
+		padding-bottom: 6px;
+	}
+
+	.divider {
+		margin: 12px 0;
+	}
+
+	.timeline-open,
+	.timeline-bar {
+		bottom: calc(10px + env(safe-area-inset-bottom));
+		left: 260px;
+		right: 60px;
+	}
+}
+
+/* Touch screens: bigger tap targets (about 40px) for the small controls */
+@media (pointer: coarse) {
+	.toggle-btn {
+		min-width: 40px;
+		min-height: 40px;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.quick-toggle button {
+		padding: 8px 6px 8px 10px;
+		font-size: 0.8rem;
+	}
+
+	.custom-checkbox-wrapper {
+		padding: 8px 0;
+	}
+
+	.filter-list {
+		gap: 4px;
+	}
+
+	.search-results button {
+		padding: 10px 6px;
+	}
+
+	.timeline-play {
+		width: 40px;
+		height: 40px;
+	}
+
+	.timeline-close {
+		min-width: 40px;
+		min-height: 40px;
+	}
+
+	.timeline-slider {
+		height: 28px;
 	}
 }

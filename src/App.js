@@ -2,6 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import './App.css';
+import {
+	FlameIcon, SearchIcon, GlobeIcon, HeadphonesIcon, PlayIcon, PauseIcon, CloseIcon, ArrowRightIcon,
+	YouTubeIcon, ApplePodcastsIcon, SpotifyIcon, InstagramIcon,
+} from './icons';
+
+const PLATFORMS = [
+	{ name: 'YouTube', url: 'https://www.youtube.com/@unlocktheearthpodcast', Icon: YouTubeIcon, color: '#ff0033' },
+	{ name: 'Apple Podcasts', url: 'https://podcasts.apple.com/tw/podcast/id1476564589', Icon: ApplePodcastsIcon, color: '#a347d9' },
+	{ name: 'Spotify', url: 'https://open.spotify.com/show/0KAH1lIkmtgoe4kPEGed4a', Icon: SpotifyIcon, color: '#1db954' },
+	{ name: 'Instagram', url: 'https://www.instagram.com/unlock.the.earth.podcast/', Icon: InstagramIcon, color: '#e1306c' },
+];
 
 const API_URL = '/api/locations';
 const MIN_LOADING_MS = 1200; // keep the spinning earth on screen briefly, but never add a fixed delay after loading
@@ -44,6 +55,47 @@ const getPinIcon = (count, active, fresh = false) => {
 
 const formatDate = (iso) => iso.replace(/-/g, '/');
 
+// Phones (portrait: bottom sheet) and landscape phones (very little height) start with the sidebar collapsed.
+const isCompactViewport = () => window.innerWidth < 600 || window.innerHeight < 500;
+
+// Part of the map (container pixels) not covered by the sidebar / bottom sheet or the timeline bar.
+// Measured when a popup opens, so it follows rotation, window resizes and the sidebar state.
+const getFreeArea = (map) => {
+	const box = map.getContainer().getBoundingClientRect();
+	const area = { top: 12, left: 12, right: box.width - 12, bottom: box.height - 12 };
+	const sidebar = document.querySelector('.sidebar-container.visible');
+	if (sidebar) {
+		const r = sidebar.getBoundingClientRect();
+		if (r.width >= box.width - 1) area.bottom = Math.min(area.bottom, r.top - box.top - 12); // bottom sheet
+		else if (!sidebar.classList.contains('collapsed')) area.left = Math.max(area.left, r.right - box.left + 12);
+	}
+	const timeline = document.querySelector('.timeline-bar, .timeline-open');
+	if (timeline) {
+		const r = timeline.getBoundingClientRect();
+		if (r.top - box.top < box.height / 2) area.top = Math.max(area.top, r.bottom - box.top + 8);
+		else area.bottom = Math.min(area.bottom, r.top - box.top - 8);
+	}
+	return area;
+};
+
+// Pans so the open popup sits inside the free area: always centred on phones,
+// otherwise only when part of it is hidden. A popup taller than the area keeps its top edge visible.
+const fitPopup = (map, popup, center) => {
+	const el = popup.getElement();
+	if (!el) return;
+	const box = map.getContainer().getBoundingClientRect();
+	const r = el.getBoundingClientRect();
+	const p = { top: r.top - box.top, bottom: r.bottom - box.top, left: r.left - box.left, right: r.right - box.left };
+	const free = getFreeArea(map);
+	const inside = p.top >= free.top && p.bottom <= free.bottom && p.left >= free.left && p.right <= free.right;
+	if (inside && !center) return;
+	const dx = (p.left + p.right - free.left - free.right) / 2;
+	const dy = p.bottom - p.top > free.bottom - free.top
+		? p.top - free.top
+		: (p.top + p.bottom - free.top - free.bottom) / 2;
+	if (Math.abs(dx) > 1 || Math.abs(dy) > 1) map.panBy([dx, dy]);
+};
+
 const readStoredTheme = () => {
 	try {
 		const saved = window.localStorage.getItem('theme');
@@ -76,7 +128,7 @@ function App() {
 	const [activeKey, setActiveKey] = useState(null);
 	const [status, setStatus] = useState('loading'); // loading | ready | error
 	const [showOverlay, setShowOverlay] = useState(true);
-	const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 600);
+	const [isCollapsed, setIsCollapsed] = useState(isCompactViewport);
 	const [isDarkMode, setIsDarkMode] = useState(readStoredTheme);
 	const [map, setMap] = useState(null);
 	const [timelineOn, setTimelineOn] = useState(false);
@@ -123,6 +175,16 @@ function App() {
 	}, []);
 
 	useEffect(() => load(), [load]);
+
+	useEffect(() => {
+		if (!map) return undefined;
+		const onOpen = ({ popup }) => {
+			// react-leaflet renders the popup content after this event, so measure two frames later
+			requestAnimationFrame(() => requestAnimationFrame(() => fitPopup(map, popup, isCompactViewport())));
+		};
+		map.on('popupopen', onOpen);
+		return () => map.off('popupopen', onOpen);
+	}, [map]);
 
 	const continentCounts = useMemo(() => {
 		const counts = new Map();
@@ -197,7 +259,7 @@ function App() {
 	const focusEpisode = (ep) => {
 		const key = placeKeyOf(ep);
 		setActiveKey(key);
-		if (window.innerWidth < 600) setIsCollapsed(true);
+		if (isCompactViewport()) setIsCollapsed(true);
 		if (!map) return;
 		let opened = false;
 		const openPopup = () => {
@@ -255,15 +317,13 @@ function App() {
 
 					{latestEpisode && (
 						<section className="sidebar-section">
-							<h4 className="section-title">🔥 最新單集</h4>
+							<h4 className="section-title"><FlameIcon size={16} className="section-icon" />最新單集</h4>
 							<div className="latest-card">
 								<div className="latest-tag">NEW</div>
 								<h3 className="latest-title">{latestEpisode.podcast.title}</h3>
 								{latestEpisode.podcast.url && (
 									<a href={latestEpisode.podcast.url} target="_blank" rel="noopener noreferrer" className="play-btn">
-										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" className="yt-icon" aria-hidden="true">
-											<path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-										</svg>
+										<YouTubeIcon size={20} color="#ff0033" />
 										馬上收聽
 									</a>
 								)}
@@ -274,7 +334,7 @@ function App() {
 					<hr className="divider" />
 
 					<section className="sidebar-section">
-						<h4 className="section-title">🔍 搜尋單集或城市</h4>
+						<h4 className="section-title"><SearchIcon size={16} className="section-icon" />搜尋單集或城市</h4>
 						<div className="search-box">
 							<input
 								type="search"
@@ -307,7 +367,7 @@ function App() {
 
 					<section className="sidebar-section">
 						<div className="section-title-row">
-							<h4 className="section-title">🌍 依洲別篩選</h4>
+							<h4 className="section-title"><GlobeIcon size={16} className="section-icon" />依洲別篩選</h4>
 							<div className="quick-toggle">
 								<button type="button" onClick={() => setAllContinents(true)}>全選</button>
 								<button type="button" onClick={() => setAllContinents(false)}>清除</button>
@@ -332,20 +392,14 @@ function App() {
 					<hr className="divider" />
 
 					<section className="sidebar-section">
-						<h4 className="section-title">🎧 收聽更多</h4>
-						<div className="social-badges">
-							<a href="https://www.youtube.com/@unlocktheearthpodcast" target="_blank" rel="noreferrer">
-								<img src="https://img.shields.io/badge/--red?logo=youtube&style=social" alt="YouTube" />
-							</a>
-							<a href="https://podcasts.apple.com/tw/podcast/id1476564589" target="_blank" rel="noreferrer">
-								<img src="https://img.shields.io/badge/--purple?logo=applepodcasts&style=social" alt="Apple Podcasts" />
-							</a>
-							<a href="https://open.spotify.com/show/0KAH1lIkmtgoe4kPEGed4a" target="_blank" rel="noreferrer">
-								<img src="https://img.shields.io/badge/--green?logo=spotify&style=social" alt="Spotify" />
-							</a>
-							<a href="https://www.instagram.com/unlock.the.earth.podcast/" target="_blank" rel="noreferrer">
-								<img src="https://img.shields.io/badge/--red?logo=instagram&style=social" alt="Instagram" />
-							</a>
+						<h4 className="section-title"><HeadphonesIcon size={16} className="section-icon" />收聽更多</h4>
+						<div className="platform-links">
+							{PLATFORMS.map(({ name, url, Icon, color }) => (
+								<a key={name} href={url} target="_blank" rel="noreferrer" className="platform-link" style={{ '--brand': color }}>
+									<Icon size={20} color={color} />
+									<span>{name}</span>
+								</a>
+							))}
 						</div>
 					</section>
 				</div>
@@ -386,7 +440,7 @@ function App() {
 							ref={(m) => { if (m) markerRefs.current.set(place.key, m); else markerRefs.current.delete(place.key); }}
 							eventHandlers={{ click: () => setActiveKey(place.key) }}
 						>
-							<Popup maxWidth={280}>
+							<Popup maxWidth={280} autoPan={false}>
 								<div className="popup-content">
 									<strong className="popup-place">{place.episodes[0].name}</strong>
 									{place.episodes.length > 1 && <span className="popup-count">{place.episodes.length} 集</span>}
@@ -396,7 +450,7 @@ function App() {
 												{ep.name !== place.episodes[0].name && <span className="popup-subplace">{ep.name}</span>}
 												{ep.podcast.title && <span className="popup-title">{ep.podcast.title}</span>}
 												{ep.podcast.url && (
-													<a href={ep.podcast.url} target="_blank" rel="noopener noreferrer">收聽 Podcast →</a>
+													<a href={ep.podcast.url} target="_blank" rel="noopener noreferrer" className="popup-link">收聽 Podcast<ArrowRightIcon size={14} /></a>
 												)}
 											</li>
 										))}
@@ -417,7 +471,7 @@ function App() {
 							onClick={togglePlay}
 							aria-label={isPlaying ? '暫停' : '播放'}
 						>
-							{isPlaying ? '❚❚' : '▶'}
+							{isPlaying ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
 						</button>
 						<input
 							type="range"
@@ -433,11 +487,11 @@ function App() {
 							<span className="timeline-date">{formatDate(cutoff)}</span>
 							<span className="timeline-count">已解鎖 {filteredLocations.length} 集</span>
 						</div>
-						<button type="button" className="timeline-close" onClick={closeTimeline} aria-label="關閉時間軸">✕</button>
+						<button type="button" className="timeline-close" onClick={closeTimeline} aria-label="關閉時間軸"><CloseIcon size={16} /></button>
 					</div>
 				) : (
 					<button type="button" className="timeline-open" onClick={openTimeline}>
-						▶ 時間軸播放
+						<PlayIcon size={14} />時間軸播放
 					</button>
 				)
 			)}

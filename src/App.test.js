@@ -54,7 +54,7 @@ test('shows an error with retry when the API fails', async () => {
 test('timeline reveals episodes up to the selected release date', async () => {
 	render(<App />);
 	await screen.findByText(/顯示 2 集/);
-	fireEvent.click(await screen.findByText('▶ 時間軸播放', {}, { timeout: 3000 })); // shown after the loading overlay
+	fireEvent.click(await screen.findByRole('button', { name: '時間軸播放' }, { timeout: 3000 })); // shown after the loading overlay
 	expect(screen.getByText('2024/01/02')).toBeInTheDocument();
 	expect(screen.getByText('已解鎖 1 集')).toBeInTheDocument();
 
