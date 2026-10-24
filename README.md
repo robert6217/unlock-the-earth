@@ -87,9 +87,9 @@ npm run smoke -- https://<preview>.vercel.app   # same checks against a Vercel p
 
 ## Weekly Episode Sync
 
-`vercel.json` schedules `/api/sync-latest` every Monday 04:00 UTC (12:00 Taiwan time). It reads the channel's YouTube RSS feed and skips Shorts and episodes already in Notion (matched by YouTube video ID).
+`vercel.json` schedules `/api/sync-latest` every Wednesday 04:00 UTC (12:00 Taiwan time). It reads the channel's YouTube RSS feed and skips Shorts and episodes already in Notion (matched by YouTube video ID).
 
-**With `ANTHROPIC_API_KEY` set**, each new title is sent to Claude, which lists the places the episode is about (Traditional Chinese name, continent, an English geocoding query). Each place is geocoded with OpenStreetMap Nominatim; if Nominatim finds nothing or lands more than 300 km from Claude's own estimate, Claude's estimate is used. One row is created per place with `Name`, `Continent`, `Lat`, `Lng`, `PodcastTitle`, `PodcastUrl` and **`NeedsReview` checked**. These pins show on the map right away — filter Notion by `NeedsReview`, fix anything wrong, and untick it.
+**With `ANTHROPIC_API_KEY` set**, each new title is sent to Claude, which lists the places the episode is about (Traditional Chinese name, continent, an English geocoding query). Each place is geocoded with OpenStreetMap Nominatim; if Nominatim finds nothing or lands more than 300 km from Claude's own estimate, Claude's estimate is used. One row is created per place with `Name`, `Continent`, `Lat`, `Lng`, `PodcastTitle`, `PodcastUrl` and **`NeedsReview` checked**. These rows stay **off the map** until reviewed — filter Notion by `NeedsReview`, fix anything wrong, and untick it; the pin appears after the cache refreshes (≤ 10 min).
 
 Episodes with no clear place (or when the suggestion fails, or without the API key) get one row with `Name = 待補地點` and no coordinates. Rows without `Lat`/`Lng` are **not shown on the map**; fill in `Name`, `Continent`, `Lat`, `Lng` in Notion and the episode appears after the cache refreshes (≤ 10 min).
 
