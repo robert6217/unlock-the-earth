@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/sync-latest.js": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/sync-latest",

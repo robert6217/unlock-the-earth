@@ -1,10 +1,10 @@
 // Weekly job (see vercel.json "crons"): add new YouTube episodes to the Notion data source.
 //
-// What it can do automatically: title + link of every new episode, with duplicates skipped.
-// What it cannot do reliably: the location. A title like
-// "Ep.245 高加索國家三角戀 | 亞美尼亞的聖山在土耳其?" does not map to one coordinate,
-// so new rows are created WITHOUT Lat/Lng. The map ignores rows without coordinates,
-// so nothing broken shows up; fill in Name / Continent / Lat / Lng in Notion when you have time.
+// Title + link of every new episode are added automatically, with duplicates skipped.
+// With ANTHROPIC_API_KEY set, the location is suggested too (lib/places.js): one row per place,
+// with Lat/Lng filled in and NeedsReview checked. Episodes without a clear place (or when the
+// suggestion fails) get a single "待補地點" row WITHOUT Lat/Lng, which the map ignores;
+// fill in Name / Continent / Lat / Lng in Notion when you have time.
 //
 // Required env vars:
 //   NOTION_API_KEY        – the integration needs the "Insert content" capability
@@ -12,6 +12,8 @@
 //   CRON_SECRET           – Vercel sends it as "Authorization: Bearer <CRON_SECRET>"
 // Optional:
 //   SYNC_SKIP_PATTERN     – regex; matching titles are never added (e.g. "^《幕後")
+//   ANTHROPIC_API_KEY     – enables location suggestions
+//   PLACE_MODEL           – Claude model for suggestions (default claude-opus-5-5)
 //
 // Manual run:  curl -H "Authorization: Bearer $CRON_SECRET" "https://<site>/api/sync-latest?dryRun=1"
 
@@ -22,8 +24,20 @@ const {
 	extractYouTubeId,
 	fetchYouTubeFeed,
 } = require('../lib/episodes');
+const { suggestionsEnabled, suggestPlaces } = require('../lib/places');
 
 const PENDING_NAME = '待補地點';
+const REVIEW_PROPERTY = 'NeedsReview'; // optional Notion checkbox; skipped if the data source lacks it
+
+async function suggestFor(video) {
+	if (!suggestionsEnabled()) return { places: [] };
+	try {
+		return { places: await suggestPlaces(video.title) };
+	} catch (error) {
+		console.error(`place suggestion failed for "${video.title}":`, error.message);
+		return { places: [], error: error.message };
+	}
+}
 
 function isAuthorized(req) {
 	const secret = process.env.CRON_SECRET;
@@ -56,24 +70,50 @@ module.exports = async (req, res) => {
 			.filter(v => !(skip && skip.test(v.title)))
 			.reverse();
 
-		if (!dryRun) {
+		const results = [];
+		for (const video of toAdd) {
+			results.push({ video, ...(await suggestFor(video)) });
+		}
+
+		if (!dryRun && results.length) {
 			const notion = getNotion();
-			for (const video of toAdd) {
-				await notion.pages.create({
-					parent: { type: 'data_source_id', data_source_id: dataSourceId },
-					properties: {
-						Name: { title: [{ text: { content: PENDING_NAME } }] },
-						PodcastTitle: { rich_text: [{ text: { content: video.title.slice(0, 2000) } }] },
-						PodcastUrl: { url: video.url },
-					},
-				});
+			const schema = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+			const canFlag = schema.properties?.[REVIEW_PROPERTY]?.type === 'checkbox';
+
+			for (const { video, places } of results) {
+				const episode = {
+					PodcastTitle: { rich_text: [{ text: { content: video.title.slice(0, 2000) } }] },
+					PodcastUrl: { url: video.url },
+				};
+				const rows = places.length
+					? places.map(p => ({
+						Name: { title: [{ text: { content: p.name } }] },
+						Continent: { select: { name: p.continent } },
+						Lat: { number: p.lat },
+						Lng: { number: p.lng },
+						...(canFlag && { [REVIEW_PROPERTY]: { checkbox: true } }),
+					}))
+					: [{ Name: { title: [{ text: { content: PENDING_NAME } }] } }];
+
+				for (const row of rows) {
+					await notion.pages.create({
+						parent: { type: 'data_source_id', data_source_id: dataSourceId },
+						properties: { ...row, ...episode },
+					});
+				}
 			}
 		}
 
 		res.status(200).json({
 			dryRun,
 			checked: feed.length,
-			added: toAdd.map(v => ({ title: v.title, url: v.url })),
+			suggestions: suggestionsEnabled(),
+			added: results.map(({ video, places, error }) => ({
+				title: video.title,
+				url: video.url,
+				places,
+				...(error && { suggestionError: error }),
+			})),
 		});
 	} catch (error) {
 		console.error('sync-latest error:', error);
