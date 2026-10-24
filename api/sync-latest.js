@@ -28,6 +28,7 @@ const { suggestionsEnabled, suggestPlaces } = require('../lib/places');
 
 const PENDING_NAME = '待補地點';
 const REVIEW_PROPERTY = 'NeedsReview'; // optional Notion checkbox; skipped if the data source lacks it
+const DATE_PROPERTY = 'PublishedAt'; // optional Notion date, used by the map's timeline
 
 async function suggestFor(video) {
 	if (!suggestionsEnabled()) return { places: [] };
@@ -79,11 +80,16 @@ module.exports = async (req, res) => {
 			const notion = getNotion();
 			const schema = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
 			const canFlag = schema.properties?.[REVIEW_PROPERTY]?.type === 'checkbox';
+			const canDate = schema.properties?.[DATE_PROPERTY]?.type === 'date';
 
 			for (const { video, places } of results) {
+				const published = video.publishedAt ? new Date(video.publishedAt) : null;
 				const episode = {
 					PodcastTitle: { rich_text: [{ text: { content: video.title.slice(0, 2000) } }] },
 					PodcastUrl: { url: video.url },
+					...(canDate && published && !isNaN(published) && {
+						[DATE_PROPERTY]: { date: { start: published.toISOString().slice(0, 10) } },
+					}),
 				};
 				const rows = places.length
 					? places.map(p => ({
