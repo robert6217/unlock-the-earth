@@ -29,6 +29,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * **📌 Grouped Markers**: Episodes recorded at the same place share one pin with a count badge; the popup lists all of them.
 * **🔥 Marker Clustering**: Zoomed out, nearby pins merge into bubbles showing how many episodes the area holds — the deeper the yellow and the bigger the glow, the more episodes. Click a bubble to zoom in; pins that still overlap at city level fan out.
 * **🔗 Shareable Links**: Every episode has a link (the "分享" button in its popup) that opens the map on that episode, with its own preview card on LINE / Facebook / X (see below).
+* **🎲 Take Me Somewhere**: "帶我去旅行" flies to a random episode and opens it — within the current continent filter, search or timeline, and without repeating recent picks.
 * **🕰 Timeline Playback**: Press "▶ 時間軸播放" to watch the map fill up in release order, one release date per step (or drag the slider).
 * **🤖 Weekly Sync**: A Vercel Cron job adds new YouTube episodes to Notion every week (see below).
 
@@ -51,7 +52,7 @@ This is an **unofficial, fan-made project**. I am not affiliated with, endorsed 
 * [x] Timeline playback: a slider that lights up episodes in release order (needs a `PublishedAt` property in Notion, which the sync can fill from RSS).
 * [ ] Footprint stats: shade visited countries and show "countries unlocked" plus per-continent progress.
 * [ ] Guest filter: parse guests from `ft.` / `with` in titles and list all episodes for a guest.
-* [ ] "Take me somewhere" button that flies to a random episode.
+* [x] "Take me somewhere" button that flies to a random episode. *(「帶我去旅行」)*
 * [ ] Play episodes inside the popup with an embedded YouTube player.
 
 ## Local Development
