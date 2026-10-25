@@ -932,8 +932,8 @@ input:checked+.slider:before {
 	}
 }
 
-/* --- Timeline --- */
-.timeline-open,
+/* --- Map actions (時間軸播放 / 帶我去旅行) and the timeline bar --- */
+.map-actions,
 .timeline-bar {
 	position: absolute;
 	bottom: 28px;
@@ -942,27 +942,38 @@ input:checked+.slider:before {
 	right: 80px;
 	margin: 0 auto;
 	z-index: 1000;
+}
+
+.map-action-btn,
+.timeline-bar {
 	background: var(--sidebar-bg);
 	backdrop-filter: blur(10px);
 	color: var(--text-primary);
 	box-shadow: 0 8px 32px var(--shadow-color);
 }
 
-.timeline-open {
+.map-actions {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	width: fit-content;
+}
+
+.map-action-btn {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 	border: 0;
-	width: fit-content;
 	border-radius: 999px;
 	padding: 10px 18px;
 	font-size: 0.9rem;
 	font-weight: 600;
+	white-space: nowrap;
 	cursor: pointer;
 }
 
-.timeline-open:hover,
-.timeline-open:focus-visible {
+.map-action-btn:hover,
+.map-action-btn:focus-visible {
 	color: var(--accent);
 	outline: none;
 }
@@ -1063,15 +1074,20 @@ input:checked+.slider:before {
 
 @media (max-width: 600px) {
 	/* The sidebar is a bottom sheet here, so the timeline moves to the top. */
-	.timeline-open,
+	.map-actions,
 	.timeline-bar {
 		top: calc(12px + env(safe-area-inset-top));
 		bottom: auto;
 	}
 
-	.timeline-open {
+	.map-actions {
 		left: 12px;
 		right: 12px;
+		gap: 8px;
+	}
+
+	.map-action-btn {
+		padding: 10px 14px;
 	}
 
 	.timeline-bar {
@@ -1105,7 +1121,7 @@ input:checked+.slider:before {
 		padding: 16px;
 	}
 
-	.timeline-open,
+	.map-actions,
 	.timeline-bar {
 		left: 290px;
 		right: 70px;
@@ -1131,7 +1147,7 @@ input:checked+.slider:before {
 		margin: 12px 0;
 	}
 
-	.timeline-open,
+	.map-actions,
 	.timeline-bar {
 		bottom: calc(10px + env(safe-area-inset-bottom));
 		left: 260px;

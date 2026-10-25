@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css'; // animations + spider legs; the bubbles are styled in App.css
 import './App.css';
 import {
-	FlameIcon, SearchIcon, GlobeIcon, HeadphonesIcon, PlayIcon, PauseIcon, CloseIcon, ShareIcon,
+	FlameIcon, SearchIcon, GlobeIcon, HeadphonesIcon, PlayIcon, PauseIcon, CloseIcon, ShareIcon, DiceIcon,
 	YouTubeIcon, ApplePodcastsIcon, SpotifyIcon, InstagramIcon,
 } from './icons';
 import { readShareParams, findSharedEpisodes, shareUrlFor } from './shareLinks';
@@ -105,7 +105,7 @@ const getFreeArea = (map) => {
 		if (r.width >= box.width - 1) area.bottom = Math.min(area.bottom, r.top - box.top - 12); // bottom sheet
 		else if (!sidebar.classList.contains('collapsed')) area.left = Math.max(area.left, r.right - box.left + 12);
 	}
-	const timeline = document.querySelector('.timeline-bar, .timeline-open');
+	const timeline = document.querySelector('.timeline-bar, .map-actions');
 	if (timeline) {
 		const r = timeline.getBoundingClientRect();
 		if (r.top - box.top < box.height / 2) area.top = Math.max(area.top, r.bottom - box.top + 8);
@@ -179,6 +179,7 @@ function App() {
 	const markerRefs = useRef(new Map());
 	const clusterRef = useRef(null);
 	const sharedLinkHandled = useRef(false);
+	const recentRandomKeys = useRef([]);
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
@@ -374,6 +375,21 @@ function App() {
 			maxZoom: 8,
 			duration: 0.8,
 		});
+	};
+
+	// "帶我去旅行": fly to a random episode among the ones currently shown (continent filter / search /
+	// timeline apply), skipping the open pin and the last few picks so repeated clicks keep moving.
+	const takeMeSomewhere = () => {
+		if (!filteredLocations.length) {
+			setToast('目前的篩選條件下沒有單集');
+			return;
+		}
+		const recent = recentRandomKeys.current;
+		const fresh = filteredLocations.filter(ep => placeKeyOf(ep) !== activeKey && !recent.includes(placeKeyOf(ep)));
+		const pool = fresh.length ? fresh : filteredLocations;
+		const ep = pool[Math.floor(Math.random() * pool.length)];
+		recentRandomKeys.current = [placeKeyOf(ep), ...recent].slice(0, Math.min(10, Math.floor(places.length / 2)));
+		focusEpisode(ep);
 	};
 
 	const shareEpisode = async (ep) => {
@@ -623,8 +639,8 @@ function App() {
 				</MapContainer>
 			</div>
 
-			{!showOverlay && timelineDates.length > 1 && (
-				timelineOn ? (
+			{!showOverlay && status === 'ready' && (
+				timelineOn && timelineDates.length > 1 ? (
 					<div className="timeline-bar" role="group" aria-label="時間軸播放">
 						<button
 							type="button"
@@ -651,9 +667,16 @@ function App() {
 						<button type="button" className="timeline-close" onClick={closeTimeline} aria-label="關閉時間軸"><CloseIcon size={16} /></button>
 					</div>
 				) : (
-					<button type="button" className="timeline-open" onClick={openTimeline}>
-						<PlayIcon size={14} />時間軸播放
-					</button>
+					<div className="map-actions">
+						{timelineDates.length > 1 && (
+							<button type="button" className="map-action-btn" onClick={openTimeline}>
+								<PlayIcon size={14} />時間軸播放
+							</button>
+						)}
+						<button type="button" className="map-action-btn" onClick={takeMeSomewhere}>
+							<DiceIcon size={16} />帶我去旅行
+						</button>
+					</div>
 				)
 			)}
 

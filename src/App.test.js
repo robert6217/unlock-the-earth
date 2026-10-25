@@ -68,3 +68,11 @@ test('timeline reveals episodes up to the selected release date', async () => {
 	fireEvent.click(screen.getByLabelText('關閉時間軸'));
 	expect(screen.getByText(/顯示 2 集/)).toBeInTheDocument();
 });
+
+test('"take me somewhere" says so when the filters leave nothing to visit', async () => {
+	render(<App />);
+	const button = await screen.findByRole('button', { name: '帶我去旅行' }, { timeout: 3000 }); // shown after the loading overlay
+	fireEvent.click(screen.getByText('清除')); // untick every continent
+	fireEvent.click(button);
+	expect(await screen.findByRole('status')).toHaveTextContent('目前的篩選條件下沒有單集');
+});
